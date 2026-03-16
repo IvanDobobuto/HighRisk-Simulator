@@ -1,4 +1,4 @@
-# HighRisk Simulator - Starter
+# HighRisk Simulator
 
 Proyecto base de **C# + WPF** para iniciar el simulador de análisis de riesgo de teleféricos.
 
