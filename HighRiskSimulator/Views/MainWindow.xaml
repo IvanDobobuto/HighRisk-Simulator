@@ -1,0 +1,79 @@
+<Window x:Class="HighRiskSimulator.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HighRisk Simulator"
+        Height="560"
+        Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,18">
+            <TextBlock Text="HighRisk Simulator"
+                       FontSize="26"
+                       FontWeight="Bold"/>
+            <TextBlock Text="Simulador inicial de riesgo para teleféricos en 1D"
+                       FontSize="14"
+                       Opacity="0.8"/>
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Padding="16"
+                Margin="0,0,0,18"
+                BorderBrush="#D0D0D0"
+                BorderThickness="1"
+                CornerRadius="8">
+            <StackPanel>
+                <TextBlock Text="{Binding EstadoGeneral}" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding RiesgoTotalTexto}" Margin="0,0,0,6"/>
+                <TextBlock Text="{Binding CantidadEventosTexto}" Margin="0,0,0,12"/>
+                <Button Content="Ejecutar simulación"
+                        Width="190"
+                        Height="36"
+                        Command="{Binding EjecutarSimulacionCommand}"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Header="Eventos detectados" Margin="0,0,12,0">
+                <ListBox ItemsSource="{Binding Eventos}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#E5E5E5" BorderThickness="0,0,0,1" Padding="0,8">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Tipo}" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding Descripcion}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    <TextBlock Text="{Binding Fecha, StringFormat='Fecha: {0:dd/MM/yyyy HH:mm}'}"
+                                               FontStyle="Italic"
+                                               Opacity="0.7"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </GroupBox>
+
+            <GroupBox Grid.Column="1" Header="Notas iniciales">
+                <StackPanel Margin="8">
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,8">
+                        Esta base incluye la estructura principal del proyecto, las primeras clases del dominio
+                        y un flujo mínimo de simulación para comenzar a iterar.
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap">
+                        Siguiente paso recomendado: guardar simulaciones en SQLite y luego añadir gráficos con ScottPlot.
+                    </TextBlock>
+                </StackPanel>
+            </GroupBox>
+        </Grid>
+    </Grid>
+</Window>
