@@ -4,7 +4,7 @@ Proyecto base de **C# + WPF** para iniciar el simulador de análisis de riesgo d
 
 ## Qué incluye este paquete
 
-- Solución de Visual Studio 2022 (`HighRiskSimulator.sln`)
+- Solución de Visual Studio 2026 (`HighRiskSimulator.sln`)
 - Proyecto WPF con **.NET 8**
 - Estructura principal de carpetas
 - Clases base del dominio del problema
@@ -33,7 +33,7 @@ HighRiskSimulatorStarter/
 
 ## Requisitos
 
-- **Visual Studio 2022**
+- **Visual Studio 2022/2026**
 - Workload **.NET desktop development**
 - SDK de **.NET 8** instalado
 
