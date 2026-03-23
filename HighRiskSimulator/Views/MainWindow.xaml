@@ -9,7 +9,9 @@
         MinHeight="820"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBackgroundBrush}">
-    <Grid Margin="18">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -459,4 +461,5 @@
             </Border>
         </Grid>
     </Grid>
+    </ScrollViewer>
 </Window>
