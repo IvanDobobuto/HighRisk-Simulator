@@ -1,4 +1,4 @@
-# HighRisk Simulator - Professional Base
+# HighRisk Simulator
 
 Base profesional del simulador de análisis de riesgo para teleféricos, rediseñada sobre **.NET 8 + WPF** para dejar un núcleo de simulación sólido, extensible y listo para crecer hacia un entorno visual **Sandbox 2D** en futuras iteraciones.
 
