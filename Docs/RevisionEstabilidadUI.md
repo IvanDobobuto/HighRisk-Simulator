@@ -29,6 +29,3 @@ Esta iteración se centró en corregir los problemas reportados al compilar y al
 - `HighRiskSimulator/Views/MainWindow.xaml`
 - `HighRiskSimulator/Views/MainWindow.xaml.cs`
 - `HighRiskSimulator/App.xaml`
-
-## Validación pendiente fuera de este entorno
-En este contenedor no hay SDK de .NET ni runtime WPF para ejecutar `dotnet build` o abrir la app. La revisión hecha aquí fue estática y se acompañó de correcciones estructurales orientadas a los errores descritos.
