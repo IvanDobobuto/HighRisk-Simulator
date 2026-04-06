@@ -8,25 +8,39 @@ namespace HighRiskSimulator.Core.Simulation;
 /// </summary>
 public sealed class SimulationOptions
 {
-    public int RandomSeed { get; init; } = 20260323;
+    public int RandomSeed { get; set; } = 20260323;
 
-    public TimeSpan FixedTimeStep { get; init; } = TimeSpan.FromMilliseconds(100);
+    /// <summary>
+    /// Semilla derivada para microvariaciones entre corridas del mismo día base.
+    /// Permite resultados muy parecidos para una misma semilla principal, pero no clones perfectos.
+    /// </summary>
+    public int OperationalVarianceSeed { get; set; } = Environment.TickCount;
 
-    public SimulationMode Mode { get; init; } = SimulationMode.IntelligentRandom;
+    public TimeSpan FixedTimeStep { get; set; } = TimeSpan.FromMilliseconds(250);
 
-    public string ScenarioId { get; init; } = ScenarioDefinition.NoScenarioId;
+    public SimulationMode Mode { get; set; } = SimulationMode.IntelligentRandom;
 
-    public double DemandMultiplier { get; init; } = 1.0;
+    public string ScenarioId { get; set; } = ScenarioDefinition.NoScenarioId;
 
-    public double RandomIncidentMultiplier { get; init; } = 1.0;
+    public double DemandMultiplier { get; set; } = 1.0;
 
-    public int TelemetryCapacity { get; init; } = 300;
+    public double RandomIncidentMultiplier { get; set; } = 1.0;
 
-    public bool EnableWeatherSystem { get; init; } = true;
+    public int TelemetryCapacity { get; set; } = 360;
 
-    public bool EnableRandomDemand { get; init; } = true;
+    public bool EnableWeatherSystem { get; set; } = true;
 
-    public bool EnableSafetyEscalation { get; init; } = true;
+    public bool EnableRandomDemand { get; set; } = true;
 
-    public TimeSpan ServiceStartTime { get; init; } = new(8, 0, 0);
+    public bool EnableSafetyEscalation { get; set; } = true;
+
+    public TimeSpan ServiceStartTime { get; set; } = new(8, 0, 0);
+
+    public TimeSpan ServiceDuration { get; set; } = TimeSpan.FromHours(9);
+
+    public DateTime SimulationDate { get; set; } = DateTime.Today;
+
+    public SimulationPressureMode PressureMode { get; set; } = SimulationPressureMode.Realistic;
+
+    public int CabinsPerDirectionPerSegment { get; set; } = 1;
 }

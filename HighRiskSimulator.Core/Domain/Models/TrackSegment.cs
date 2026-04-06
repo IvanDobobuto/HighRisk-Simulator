@@ -20,7 +20,9 @@ public sealed class TrackSegment
         double emergencyDecelerationMetersPerSecondSquared,
         double minimumSeparationMeters,
         double weatherExposureFactor,
-        int visualOrder)
+        int visualOrder,
+        bool allowsReverseTraversal = true,
+        double icingExposureFactor = 1.0)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -54,6 +56,11 @@ public sealed class TrackSegment
             throw new ArgumentOutOfRangeException(nameof(minimumSeparationMeters), "La separación mínima no puede ser negativa.");
         }
 
+        if (icingExposureFactor <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(icingExposureFactor), "El factor de exposición al hielo debe ser positivo.");
+        }
+
         Id = id;
         Code = code;
         Name = name;
@@ -67,6 +74,8 @@ public sealed class TrackSegment
         MinimumSeparationMeters = minimumSeparationMeters;
         WeatherExposureFactor = Math.Clamp(weatherExposureFactor, 0.1, 3.0);
         VisualOrder = visualOrder;
+        AllowsReverseTraversal = allowsReverseTraversal;
+        IcingExposureFactor = icingExposureFactor;
     }
 
     public int Id { get; }
@@ -93,10 +102,17 @@ public sealed class TrackSegment
 
     public double WeatherExposureFactor { get; }
 
+    public double IcingExposureFactor { get; }
+
     /// <summary>
     /// Orden visual usado por la UI para dibujar el perfil del sistema.
     /// </summary>
     public int VisualOrder { get; }
+
+    /// <summary>
+    /// Indica si el tramo puede recorrerse en sentido inverso al definido como origen-destino.
+    /// </summary>
+    public bool AllowsReverseTraversal { get; }
 
     /// <summary>
     /// Longitud total del ciclo ida/vuelta del tramo. Este dato permite justificar el uso
@@ -119,7 +135,9 @@ public sealed class TrackSegment
             EmergencyDecelerationMetersPerSecondSquared,
             MinimumSeparationMeters,
             WeatherExposureFactor,
-            VisualOrder);
+            VisualOrder,
+            AllowsReverseTraversal,
+            IcingExposureFactor);
     }
 
     public override string ToString()

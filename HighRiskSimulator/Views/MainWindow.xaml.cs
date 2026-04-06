@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,15 +13,14 @@ namespace HighRiskSimulator.Views;
 
 /// <summary>
 /// Ventana principal.
-/// 
-/// El code-behind se usa solo para tareas de presentación dura:
-/// - dibujar el perfil del sistema en Canvas;
-/// - refrescar ScottPlot.
-/// 
-/// La lógica del simulador sigue residiendo fuera de la vista.
+///
+/// El code-behind se utiliza únicamente para tareas de presentación:
+/// - dibujar la vista 1D del recorrido;
+/// - actualizar ScottPlot con seguimiento automático de la ventana temporal.
 /// </summary>
 public partial class MainWindow : Window
 {
+    private const double TelemetryWindowSeconds = 420;
     private SimulationSnapshot? _lastSnapshot;
 
     public MainWindow()
@@ -70,10 +70,21 @@ public partial class MainWindow : Window
             var weather = MetricsPlot.Plot.Add.Scatter(telemetry.WeatherX, telemetry.WeatherY);
             weather.LegendText = "Presión climática";
 
+            var latestTime = new[]
+            {
+                telemetry.RiskX.LastOrDefault(),
+                telemetry.OccupancyX.LastOrDefault(),
+                telemetry.WeatherX.LastOrDefault()
+            }.Max();
+
+            var xMin = Math.Max(0, latestTime - TelemetryWindowSeconds);
+            var xMax = Math.Max(TelemetryWindowSeconds, latestTime + 12);
+
             MetricsPlot.Plot.ShowLegend();
             MetricsPlot.Plot.Title("Telemetría operacional");
             MetricsPlot.Plot.XLabel("Tiempo (s)");
             MetricsPlot.Plot.YLabel("Valor normalizado");
+            MetricsPlot.Plot.Axes.SetLimits(xMin, xMax, -2, 102);
         }
 
         MetricsPlot.Refresh();
@@ -88,13 +99,19 @@ public partial class MainWindow : Window
             return;
         }
 
-        var width = RouteCanvas.ActualWidth;
-        var height = RouteCanvas.ActualHeight;
+        var viewportWidth = RouteCanvasScrollViewer.ViewportWidth > 0 ? RouteCanvasScrollViewer.ViewportWidth : RouteCanvas.ActualWidth;
+        var viewportHeight = RouteCanvasScrollViewer.ViewportHeight > 0 ? RouteCanvasScrollViewer.ViewportHeight : RouteCanvas.ActualHeight;
 
-        const double leftMargin = 88;
-        const double rightMargin = 96;
-        const double topMargin = 48;
-        const double bottomMargin = 86;
+        RouteCanvas.Width = Math.Max(viewportWidth, 1520);
+        RouteCanvas.Height = Math.Max(viewportHeight, 540);
+
+        var width = RouteCanvas.Width;
+        var height = RouteCanvas.Height;
+
+        const double leftMargin = 100;
+        const double rightMargin = 210;
+        const double topMargin = 72;
+        const double bottomMargin = 96;
 
         var minRoute = snapshot.Stations.Min(station => station.RoutePositionMeters);
         var maxRoute = snapshot.Stations.Max(station => station.RoutePositionMeters);
@@ -116,11 +133,11 @@ public partial class MainWindow : Window
             return new Point(x, y);
         }
 
-        DrawAltitudeGrid(MapPoint, minAltitude, maxAltitude, minRoute, maxRoute, width);
+        DrawAltitudeGrid(MapPoint, minAltitude, maxAltitude, minRoute, width);
         DrawRoutePolyline(snapshot, MapPoint);
-        DrawStations(snapshot, MapPoint);
         DrawCabins(snapshot, MapPoint);
-        DrawBadges(snapshot, width);
+        DrawStations(snapshot, MapPoint);
+        DrawBadges(snapshot, width, height);
     }
 
     private void DrawAltitudeGrid(
@@ -128,7 +145,6 @@ public partial class MainWindow : Window
         double minAltitude,
         double maxAltitude,
         double minRoute,
-        double maxRoute,
         double width)
     {
         for (var index = 0; index <= 4; index++)
@@ -138,13 +154,13 @@ public partial class MainWindow : Window
 
             var line = new Line
             {
-                X1 = 72,
-                X2 = width - 36,
+                X1 = 74,
+                X2 = width - 38,
                 Y1 = point.Y,
                 Y2 = point.Y,
-                Stroke = new SolidColorBrush(Color.FromArgb(48, 148, 163, 184)),
+                Stroke = new SolidColorBrush(Color.FromArgb(42, 148, 163, 184)),
                 StrokeThickness = 1,
-                StrokeDashArray = new DoubleCollection { 4, 5 }
+                StrokeDashArray = new DoubleCollection { 5, 5 }
             };
 
             RouteCanvas.Children.Add(line);
@@ -153,7 +169,8 @@ public partial class MainWindow : Window
             {
                 Text = $"{altitude:F0} m",
                 Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
-                FontSize = 11
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold
             };
 
             Canvas.SetLeft(altitudeText, 16);
@@ -166,8 +183,8 @@ public partial class MainWindow : Window
     {
         var shadowPolyline = new Polyline
         {
-            Stroke = new SolidColorBrush(Color.FromArgb(90, 56, 189, 248)),
-            StrokeThickness = 10,
+            Stroke = new SolidColorBrush(Color.FromArgb(82, 56, 189, 248)),
+            StrokeThickness = 11,
             StrokeLineJoin = PenLineJoin.Round,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round
@@ -201,6 +218,19 @@ public partial class MainWindow : Window
         {
             var station = orderedStations[index];
             var point = mapPoint(station.RoutePositionMeters, station.AltitudeMeters);
+            var isFirstStation = index == 0;
+            var isLastStation = index == orderedStations.Count - 1;
+
+            var halo = new Ellipse
+            {
+                Width = 28,
+                Height = 28,
+                Fill = new SolidColorBrush(Color.FromArgb(40, 59, 130, 246)),
+                StrokeThickness = 0
+            };
+            Canvas.SetLeft(halo, point.X - 14);
+            Canvas.SetTop(halo, point.Y - 14);
+            RouteCanvas.Children.Add(halo);
 
             var marker = new Ellipse
             {
@@ -215,8 +245,10 @@ public partial class MainWindow : Window
             Canvas.SetTop(marker, point.Y - 9);
             RouteCanvas.Children.Add(marker);
 
+            const double labelWidth = 162;
             var label = new Border
             {
+                Width = labelWidth,
                 Background = new SolidColorBrush(Color.FromArgb(230, 15, 23, 42)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(120, 148, 163, 184)),
                 BorderThickness = new Thickness(1),
@@ -231,41 +263,71 @@ public partial class MainWindow : Window
                             Text = station.Name,
                             Foreground = Brushes.White,
                             FontWeight = FontWeights.SemiBold,
-                            FontSize = 12
+                            FontSize = 12,
+                            TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
                         {
-                            Text = $"{station.AltitudeMeters:F0} m | cola {station.TotalWaitingPassengers}",
+                            Text = $"↑ {station.WaitingAscendingPassengers} | ↓ {station.WaitingDescendingPassengers} | {station.BoardingRulesDisplay}",
                             Foreground = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
-                            FontSize = 11
+                            FontSize = 10.5,
+                            TextWrapping = TextWrapping.Wrap
                         }
                     }
                 }
             };
 
-            var verticalOffset = index % 2 == 0 ? -72 : 18;
-            Canvas.SetLeft(label, point.X - 48);
-            Canvas.SetTop(label, point.Y + verticalOffset);
+            double desiredLeft;
+            double desiredTop;
+
+            if (isFirstStation)
+            {
+                desiredLeft = point.X - 34;
+                desiredTop = point.Y - 100;
+            }
+            else if (isLastStation)
+            {
+                desiredLeft = point.X - labelWidth - 26;
+                desiredTop = point.Y + 22;
+            }
+            else
+            {
+                desiredLeft = point.X - (labelWidth / 2);
+                desiredTop = point.Y + (index % 2 == 0 ? -110 : 30);
+            }
+
+            desiredLeft = Math.Max(10, Math.Min(RouteCanvas.Width - labelWidth - 10, desiredLeft));
+            desiredTop = Math.Max(52, Math.Min(RouteCanvas.Height - 88, desiredTop));
+            Canvas.SetLeft(label, desiredLeft);
+            Canvas.SetTop(label, desiredTop);
             RouteCanvas.Children.Add(label);
         }
     }
 
     private void DrawCabins(SimulationSnapshot snapshot, Func<double, double, Point> mapPoint)
     {
-        foreach (var cabin in snapshot.Cabins.OrderBy(item => item.Id))
+        var segmentIndexes = snapshot.Cabins
+            .GroupBy(cabin => cabin.SegmentName)
+            .ToDictionary(group => group.Key, group => 0);
+
+        foreach (var cabin in snapshot.Cabins.OrderBy(item => item.SegmentName).ThenBy(item => item.Id))
         {
             var point = mapPoint(cabin.GlobalRoutePositionMeters, cabin.AltitudeMeters);
+            var segmentIndex = segmentIndexes[cabin.SegmentName]++;
+            var directionOffset = cabin.Direction == TravelDirection.Ascending ? -18 : 18;
+            var staggerOffset = ((segmentIndex % 3) - 1) * 10;
+            var visualY = point.Y + directionOffset + staggerOffset;
             var cabinBrush = ResolveCabinBrush(cabin);
 
             var card = new Border
             {
-                Width = 102,
-                Height = 46,
+                Width = 112,
+                Height = 50,
                 Background = cabinBrush,
                 BorderBrush = new SolidColorBrush(Color.FromArgb(180, 15, 23, 42)),
                 BorderThickness = new Thickness(1.4),
                 CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(8, 5, 8, 5),
+                Padding = new Thickness(8, 6, 8, 6),
                 Child = new Grid
                 {
                     ColumnDefinitions =
@@ -304,22 +366,58 @@ public partial class MainWindow : Window
 
             details.Children.Add(new TextBlock
             {
-                Text = $"{cabin.PassengerCount}/{cabin.Capacity} pax",
+                Text = cabin.CompactOccupancyLabel,
                 Foreground = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255)),
                 FontSize = 11
             });
 
             contentGrid.Children.Add(details);
 
-            Canvas.SetLeft(card, point.X - (card.Width / 2));
-            Canvas.SetTop(card, point.Y - 24);
+            var cardLeft = Math.Max(8, Math.Min(RouteCanvas.Width - card.Width - 8, point.X - (card.Width / 2)));
+            var cardTop = Math.Max(82, Math.Min(RouteCanvas.Height - card.Height - 42, visualY - (card.Height / 2)));
+            Canvas.SetLeft(card, cardLeft);
+            Canvas.SetTop(card, cardTop);
             RouteCanvas.Children.Add(card);
         }
     }
 
-    private void DrawBadges(SimulationSnapshot snapshot, double width)
+    private void DrawBadges(SimulationSnapshot snapshot, double width, double height)
     {
-        var weatherBadge = new Border
+        var weatherBadge = CreateBadge($"Clima: {snapshot.WeatherCondition.ToDisplayText()} | Riesgo {snapshot.CurrentRiskScore:F1} | Visibilidad {snapshot.VisibilityPercent:F0}%");
+        Canvas.SetLeft(weatherBadge, Math.Max(18, width - 410));
+        Canvas.SetTop(weatherBadge, 18);
+        RouteCanvas.Children.Add(weatherBadge);
+
+        var profileBadge = CreateBadge($"Perfil: {snapshot.DayProfileName} | Temporada: {snapshot.SeasonalityLabel}");
+        Canvas.SetLeft(profileBadge, 18);
+        Canvas.SetTop(profileBadge, 16);
+        RouteCanvas.Children.Add(profileBadge);
+
+        var footer = new TextBlock
+        {
+            Text = "Ruta 1D: Barinitas - La Montaña - La Aguada - Loma Redonda - Pico Espejo",
+            Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold
+        };
+
+        Canvas.SetLeft(footer, 20);
+        Canvas.SetTop(footer, Math.Max(0, height - 28));
+        RouteCanvas.Children.Add(footer);
+
+        if (snapshot.OperationalState == SystemOperationalState.EmergencyStop)
+        {
+            RouteCanvas.Children.Add(CreateOverlay(width, "PROTOCOLO DE EMERGENCIA ACTIVO", Color.FromArgb(232, 127, 29, 29), Color.FromArgb(190, 254, 202, 202)));
+        }
+        else if (snapshot.OperationalState == SystemOperationalState.Completed)
+        {
+            RouteCanvas.Children.Add(CreateOverlay(width, "JORNADA COMPLETADA", Color.FromArgb(228, 21, 128, 61), Color.FromArgb(180, 187, 247, 208)));
+        }
+    }
+
+    private static Border CreateBadge(string text)
+    {
+        return new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(210, 15, 23, 42)),
             BorderBrush = new SolidColorBrush(Color.FromArgb(120, 148, 163, 184)),
@@ -328,61 +426,48 @@ public partial class MainWindow : Window
             Padding = new Thickness(12, 8, 12, 8),
             Child = new TextBlock
             {
-                Text = $"Clima: {snapshot.WeatherCondition} | Riesgo {snapshot.CurrentRiskScore:F1}",
+                Text = text,
                 Foreground = Brushes.White,
-                FontWeight = FontWeights.SemiBold
+                FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap
+            }
+        };
+    }
+
+    private static Border CreateOverlay(double width, string text, Color backgroundColor, Color borderColor)
+    {
+        var overlay = new Border
+        {
+            Width = Math.Max(280, width * 0.46),
+            Background = new SolidColorBrush(backgroundColor),
+            BorderBrush = new SolidColorBrush(borderColor),
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(14, 10, 14, 10),
+            Child = new TextBlock
+            {
+                Text = text,
+                Foreground = Brushes.White,
+                FontWeight = FontWeights.Bold,
+                FontSize = 16,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center
             }
         };
 
-        Canvas.SetLeft(weatherBadge, Math.Max(16, width - 290));
-        Canvas.SetTop(weatherBadge, 16);
-        RouteCanvas.Children.Add(weatherBadge);
-
-        var footer = new TextBlock
-        {
-            Text = "Perfil 1D: Barinitas -> La Montaña -> La Aguada -> Loma Redonda -> Pico Espejo",
-            Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
-            FontSize = 12
-        };
-
-        Canvas.SetLeft(footer, 20);
-        Canvas.SetTop(footer, Math.Max(0, RouteCanvas.ActualHeight - 26));
-        RouteCanvas.Children.Add(footer);
-
-        if (snapshot.OperationalState == SystemOperationalState.EmergencyStop)
-        {
-            var overlay = new Border
-            {
-                Width = Math.Max(260, width * 0.45),
-                Background = new SolidColorBrush(Color.FromArgb(230, 127, 29, 29)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(180, 254, 202, 202)),
-                BorderThickness = new Thickness(1.5),
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(14, 10, 14, 10),
-                Child = new TextBlock
-                {
-                    Text = "PROTOCOLO DE EMERGENCIA ACTIVO",
-                    Foreground = Brushes.White,
-                    FontWeight = FontWeights.Bold,
-                    FontSize = 16,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                }
-            };
-
-            Canvas.SetLeft(overlay, Math.Max(16, (width - overlay.Width) / 2));
-            Canvas.SetTop(overlay, 18);
-            RouteCanvas.Children.Add(overlay);
-        }
+        Canvas.SetLeft(overlay, Math.Max(16, (width - overlay.Width) / 2));
+        Canvas.SetTop(overlay, 58);
+        return overlay;
     }
 
     private static Brush ResolveCabinBrush(CabinSnapshot cabin)
     {
-        if (cabin.IsOutOfService || cabin.HasMechanicalFailure || cabin.HasElectricalFailure)
+        if (cabin.IsOutOfService || cabin.AlertLevel == CabinAlertLevel.Critical || cabin.HasMechanicalFailure || cabin.HasElectricalFailure)
         {
             return new SolidColorBrush(Color.FromRgb(239, 68, 68));
         }
 
-        if (cabin.HasEmergencyBrake || cabin.OperationalState == CabinOperationalState.EmergencyBraking || cabin.OperationalState == CabinOperationalState.Braking)
+        if (cabin.HasEmergencyBrake || cabin.AlertLevel == CabinAlertLevel.Alert || cabin.OperationalState == CabinOperationalState.EmergencyBraking || cabin.OperationalState == CabinOperationalState.Braking)
         {
             return new SolidColorBrush(Color.FromRgb(245, 158, 11));
         }

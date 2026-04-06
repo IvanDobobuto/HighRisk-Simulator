@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using HighRiskSimulator.Core.Domain;
 
 namespace HighRiskSimulator.Core.Domain.Models;
 
@@ -30,6 +32,7 @@ public sealed class CabinSnapshot
         string segmentName,
         TravelDirection direction,
         CabinOperationalState operationalState,
+        CabinAlertLevel alertLevel,
         int passengerCount,
         int capacity,
         double segmentPositionMeters,
@@ -39,13 +42,17 @@ public sealed class CabinSnapshot
         bool hasEmergencyBrake,
         bool hasMechanicalFailure,
         bool hasElectricalFailure,
-        bool isOutOfService)
+        bool isOutOfService,
+        double mechanicalHealthPercent,
+        double electricalHealthPercent,
+        double brakeHealthPercent)
     {
         Id = id;
         Code = code;
         SegmentName = segmentName;
         Direction = direction;
         OperationalState = operationalState;
+        AlertLevel = alertLevel;
         PassengerCount = passengerCount;
         Capacity = capacity;
         SegmentPositionMeters = segmentPositionMeters;
@@ -56,6 +63,9 @@ public sealed class CabinSnapshot
         HasMechanicalFailure = hasMechanicalFailure;
         HasElectricalFailure = hasElectricalFailure;
         IsOutOfService = isOutOfService;
+        MechanicalHealthPercent = mechanicalHealthPercent;
+        ElectricalHealthPercent = electricalHealthPercent;
+        BrakeHealthPercent = brakeHealthPercent;
     }
 
     public int Id { get; }
@@ -67,6 +77,8 @@ public sealed class CabinSnapshot
     public TravelDirection Direction { get; }
 
     public CabinOperationalState OperationalState { get; }
+
+    public CabinAlertLevel AlertLevel { get; }
 
     public int PassengerCount { get; }
 
@@ -88,7 +100,27 @@ public sealed class CabinSnapshot
 
     public bool IsOutOfService { get; }
 
+    public double MechanicalHealthPercent { get; }
+
+    public double ElectricalHealthPercent { get; }
+
+    public double BrakeHealthPercent { get; }
+
     public double OccupancyPercent => Capacity <= 0 ? 0.0 : (double)PassengerCount / Capacity * 100.0;
+
+    public string DirectionDisplay => Direction.ToDisplayText();
+
+    public string OperationalStateDisplay => OperationalState.ToDisplayText();
+
+    public string AlertLevelDisplay => AlertLevel.ToDisplayText();
+
+    public string PassengerCountDisplay => $"{PassengerCount} pasajeros";
+
+    public string OccupancyLabel => $"{PassengerCount} de {Capacity} ({OccupancyPercent:F0} %)";
+
+    public string CompactOccupancyLabel => $"{PassengerCount}/{Capacity} ({OccupancyPercent:F0} %)";
+
+    public string HealthSummaryDisplay => $"Mec. {MechanicalHealthPercent:F0}% | Eléc. {ElectricalHealthPercent:F0}% | Frenos {BrakeHealthPercent:F0}%";
 }
 
 /// <summary>
@@ -103,7 +135,9 @@ public sealed class StationSnapshot
         double altitudeMeters,
         double routePositionMeters,
         int waitingAscendingPassengers,
-        int waitingDescendingPassengers)
+        int waitingDescendingPassengers,
+        bool allowsAscendingBoarding,
+        bool allowsDescendingBoarding)
     {
         Id = id;
         Code = code;
@@ -112,6 +146,8 @@ public sealed class StationSnapshot
         RoutePositionMeters = routePositionMeters;
         WaitingAscendingPassengers = waitingAscendingPassengers;
         WaitingDescendingPassengers = waitingDescendingPassengers;
+        AllowsAscendingBoarding = allowsAscendingBoarding;
+        AllowsDescendingBoarding = allowsDescendingBoarding;
     }
 
     public int Id { get; }
@@ -128,7 +164,34 @@ public sealed class StationSnapshot
 
     public int WaitingDescendingPassengers { get; }
 
+    public bool AllowsAscendingBoarding { get; }
+
+    public bool AllowsDescendingBoarding { get; }
+
     public int TotalWaitingPassengers => WaitingAscendingPassengers + WaitingDescendingPassengers;
+
+    public string BoardingRulesDisplay
+    {
+        get
+        {
+            if (AllowsAscendingBoarding && AllowsDescendingBoarding)
+            {
+                return "Ascenso / descenso";
+            }
+
+            if (AllowsAscendingBoarding)
+            {
+                return "Solo ascenso";
+            }
+
+            if (AllowsDescendingBoarding)
+            {
+                return "Solo descenso";
+            }
+
+            return "Sin embarque";
+        }
+    }
 }
 
 /// <summary>
@@ -173,17 +236,26 @@ public sealed class SimulationSnapshot
     public SimulationSnapshot(
         int tickIndex,
         TimeSpan elapsed,
+        DateTime simulationDate,
         SimulationMode mode,
         string scenarioName,
         string dayProfileName,
+        string seasonalityLabel,
+        SimulationPressureMode pressureMode,
+        int baseSeed,
+        int operationalVarianceSeed,
         SystemOperationalState operationalState,
         string operationalNarrative,
         string weatherSummary,
         WeatherCondition weatherCondition,
         double currentRiskScore,
         double averageOccupancyPercent,
+        double visibilityPercent,
+        double icingRiskPercent,
         int processedPassengers,
+        int rejectedPassengers,
         int activeCriticalIssues,
+        int totalEvents,
         IReadOnlyList<CabinSnapshot> cabins,
         IReadOnlyList<StationSnapshot> stations,
         IReadOnlyList<SimulationEvent> recentEvents,
@@ -191,17 +263,26 @@ public sealed class SimulationSnapshot
     {
         TickIndex = tickIndex;
         Elapsed = elapsed;
+        SimulationDate = simulationDate;
         Mode = mode;
         ScenarioName = scenarioName;
         DayProfileName = dayProfileName;
+        SeasonalityLabel = seasonalityLabel;
+        PressureMode = pressureMode;
+        BaseSeed = baseSeed;
+        OperationalVarianceSeed = operationalVarianceSeed;
         OperationalState = operationalState;
         OperationalNarrative = operationalNarrative;
         WeatherSummary = weatherSummary;
         WeatherCondition = weatherCondition;
         CurrentRiskScore = currentRiskScore;
         AverageOccupancyPercent = averageOccupancyPercent;
+        VisibilityPercent = visibilityPercent;
+        IcingRiskPercent = icingRiskPercent;
         ProcessedPassengers = processedPassengers;
+        RejectedPassengers = rejectedPassengers;
         ActiveCriticalIssues = activeCriticalIssues;
+        TotalEvents = totalEvents;
         Cabins = cabins;
         Stations = stations;
         RecentEvents = recentEvents;
@@ -212,11 +293,21 @@ public sealed class SimulationSnapshot
 
     public TimeSpan Elapsed { get; }
 
+    public DateTime SimulationDate { get; }
+
     public SimulationMode Mode { get; }
 
     public string ScenarioName { get; }
 
     public string DayProfileName { get; }
+
+    public string SeasonalityLabel { get; }
+
+    public SimulationPressureMode PressureMode { get; }
+
+    public int BaseSeed { get; }
+
+    public int OperationalVarianceSeed { get; }
 
     public SystemOperationalState OperationalState { get; }
 
@@ -230,9 +321,17 @@ public sealed class SimulationSnapshot
 
     public double AverageOccupancyPercent { get; }
 
+    public double VisibilityPercent { get; }
+
+    public double IcingRiskPercent { get; }
+
     public int ProcessedPassengers { get; }
 
+    public int RejectedPassengers { get; }
+
     public int ActiveCriticalIssues { get; }
+
+    public int TotalEvents { get; }
 
     public IReadOnlyList<CabinSnapshot> Cabins { get; }
 
@@ -241,4 +340,10 @@ public sealed class SimulationSnapshot
     public IReadOnlyList<SimulationEvent> RecentEvents { get; }
 
     public TelemetrySnapshot Telemetry { get; }
+
+    public bool IsCompleted => OperationalState == SystemOperationalState.Completed || OperationalState == SystemOperationalState.EmergencyStop;
+
+    public string OperationalStateDisplay => OperationalState.ToDisplayText();
+
+    public string PressureModeDisplay => PressureMode.ToDisplayText();
 }

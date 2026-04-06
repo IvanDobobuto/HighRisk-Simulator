@@ -5,9 +5,9 @@ namespace HighRiskSimulator.Core.Domain.Models;
 /// <summary>
 /// Estación del sistema de teleférico.
 /// 
-/// La clase mezcla información estructural (nombre, altura, posición en ruta)
-/// con estado operativo ligero (colas de pasajeros) para mantener esta primera
-/// base sólida simple de entender y extender.
+/// Combina información estructural con un estado operativo liviano sobre colas.
+/// Las colas respetan reglas reales de borde: la estación base no admite cola de
+/// descenso y la estación cumbre no admite cola de ascenso.
 /// </summary>
 public sealed class Station
 {
@@ -18,7 +18,10 @@ public sealed class Station
         double altitudeMeters,
         double routePositionMeters,
         TimeSpan defaultDwellTime,
-        double demandWeight)
+        double demandWeight,
+        bool isLowerTerminal = false,
+        bool isUpperTerminal = false,
+        double attractionFactor = 1.0)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -50,6 +53,16 @@ public sealed class Station
             throw new ArgumentOutOfRangeException(nameof(demandWeight), "El peso de demanda debe ser positivo.");
         }
 
+        if (attractionFactor <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(attractionFactor), "El factor de atracción debe ser positivo.");
+        }
+
+        if (isLowerTerminal && isUpperTerminal)
+        {
+            throw new ArgumentException("Una estación no puede ser terminal inferior y superior a la vez.");
+        }
+
         Id = id;
         Code = code;
         Name = name;
@@ -57,6 +70,9 @@ public sealed class Station
         RoutePositionMeters = routePositionMeters;
         DefaultDwellTime = defaultDwellTime;
         DemandWeight = demandWeight;
+        IsLowerTerminal = isLowerTerminal;
+        IsUpperTerminal = isUpperTerminal;
+        AttractionFactor = attractionFactor;
     }
 
     /// <summary>
@@ -95,6 +111,19 @@ public sealed class Station
     public double DemandWeight { get; }
 
     /// <summary>
+    /// Qué tan atractiva es la estación como punto de permanencia/visita.
+    /// </summary>
+    public double AttractionFactor { get; }
+
+    public bool IsLowerTerminal { get; }
+
+    public bool IsUpperTerminal { get; }
+
+    public bool AllowsAscendingBoarding => !IsUpperTerminal;
+
+    public bool AllowsDescendingBoarding => !IsLowerTerminal;
+
+    /// <summary>
     /// Cola agregada de pasajeros que desean ir en sentido ascendente.
     /// </summary>
     public int WaitingAscendingPassengers { get; private set; }
@@ -105,12 +134,24 @@ public sealed class Station
     public int WaitingDescendingPassengers { get; private set; }
 
     /// <summary>
-    /// Agrega pasajeros a las colas de la estación.
+    /// Total consolidado de pasajeros esperando en la estacion.
+    /// </summary>
+    public int TotalWaitingPassengers => WaitingAscendingPassengers + WaitingDescendingPassengers;
+
+    /// <summary>
+    /// Agrega pasajeros a las colas de la estación respetando restricciones físicas.
     /// </summary>
     public void EnqueuePassengers(int ascendingPassengers, int descendingPassengers)
     {
-        WaitingAscendingPassengers = Math.Max(0, WaitingAscendingPassengers + Math.Max(0, ascendingPassengers));
-        WaitingDescendingPassengers = Math.Max(0, WaitingDescendingPassengers + Math.Max(0, descendingPassengers));
+        if (AllowsAscendingBoarding)
+        {
+            WaitingAscendingPassengers = Math.Max(0, WaitingAscendingPassengers + Math.Max(0, ascendingPassengers));
+        }
+
+        if (AllowsDescendingBoarding)
+        {
+            WaitingDescendingPassengers = Math.Max(0, WaitingDescendingPassengers + Math.Max(0, descendingPassengers));
+        }
     }
 
     /// <summary>
@@ -118,6 +159,11 @@ public sealed class Station
     /// </summary>
     public int DequeueAscendingPassengers(int requested)
     {
+        if (!AllowsAscendingBoarding)
+        {
+            return 0;
+        }
+
         var served = Math.Max(0, Math.Min(requested, WaitingAscendingPassengers));
         WaitingAscendingPassengers -= served;
         return served;
@@ -128,6 +174,11 @@ public sealed class Station
     /// </summary>
     public int DequeueDescendingPassengers(int requested)
     {
+        if (!AllowsDescendingBoarding)
+        {
+            return 0;
+        }
+
         var served = Math.Max(0, Math.Min(requested, WaitingDescendingPassengers));
         WaitingDescendingPassengers -= served;
         return served;
@@ -147,7 +198,18 @@ public sealed class Station
     /// </summary>
     public Station Clone()
     {
-        var clone = new Station(Id, Code, Name, AltitudeMeters, RoutePositionMeters, DefaultDwellTime, DemandWeight);
+        var clone = new Station(
+            Id,
+            Code,
+            Name,
+            AltitudeMeters,
+            RoutePositionMeters,
+            DefaultDwellTime,
+            DemandWeight,
+            IsLowerTerminal,
+            IsUpperTerminal,
+            AttractionFactor);
+
         clone.EnqueuePassengers(WaitingAscendingPassengers, WaitingDescendingPassengers);
         return clone;
     }

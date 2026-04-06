@@ -25,17 +25,18 @@ public sealed class RoutePath
 }
 
 /// <summary>
-/// Grafo manual basado en listas de adyacencia.
+/// Grafo manual basado en listas de adyacencia dirigidas.
 /// 
-/// Esta elección es mejor que una matriz de adyacencia para este proyecto porque
-/// la red de estaciones es naturalmente dispersa: pocas conexiones por estación,
-/// crecimiento incremental y necesidad de recorrer vecinos y calcular rutas.
+/// Cada tramo físico existe una sola vez, pero el grafo mantiene por separado
+/// salidas y entradas para soportar crecimiento futuro, cierres unidireccionales,
+/// mantenimientos parciales y análisis de rutas dirigidas.
 /// </summary>
 public sealed class StationNetworkGraph
 {
     private readonly Dictionary<int, Station> _stations = new();
     private readonly Dictionary<int, TrackSegment> _segments = new();
-    private readonly Dictionary<int, List<int>> _adjacency = new();
+    private readonly Dictionary<int, List<int>> _outgoingAdjacency = new();
+    private readonly Dictionary<int, List<int>> _incomingAdjacency = new();
 
     public IReadOnlyList<Station> GetStationsOrderedByRoutePosition()
     {
@@ -55,10 +56,11 @@ public sealed class StationNetworkGraph
         }
 
         _stations[station.Id] = station;
-        _adjacency[station.Id] = new List<int>();
+        _outgoingAdjacency[station.Id] = new List<int>();
+        _incomingAdjacency[station.Id] = new List<int>();
     }
 
-    public void AddSegment(TrackSegment segment, bool bidirectional = true)
+    public void AddSegment(TrackSegment segment, bool? bidirectional = null)
     {
         if (_segments.ContainsKey(segment.Id))
         {
@@ -71,11 +73,15 @@ public sealed class StationNetworkGraph
         }
 
         _segments[segment.Id] = segment;
-        _adjacency[segment.StartStationId].Add(segment.Id);
 
-        if (bidirectional)
+        _outgoingAdjacency[segment.StartStationId].Add(segment.Id);
+        _incomingAdjacency[segment.EndStationId].Add(segment.Id);
+
+        var allowReverseTraversal = bidirectional ?? segment.AllowsReverseTraversal;
+        if (allowReverseTraversal)
         {
-            _adjacency[segment.EndStationId].Add(segment.Id);
+            _outgoingAdjacency[segment.EndStationId].Add(segment.Id);
+            _incomingAdjacency[segment.StartStationId].Add(segment.Id);
         }
     }
 
@@ -93,21 +99,39 @@ public sealed class StationNetworkGraph
             : throw new KeyNotFoundException($"No existe el tramo {segmentId}.");
     }
 
-    public IReadOnlyList<TrackSegment> GetAdjacentSegments(int stationId)
+    public IReadOnlyList<TrackSegment> GetOutgoingSegments(int stationId)
     {
-        if (!_adjacency.TryGetValue(stationId, out var segmentIds))
+        if (!_outgoingAdjacency.TryGetValue(stationId, out var segmentIds))
         {
             return Array.Empty<TrackSegment>();
         }
 
-        return segmentIds.Select(GetSegment).ToList();
+        return segmentIds.Select(GetSegment).DistinctBy(segment => segment.Id).ToList();
+    }
+
+    public IReadOnlyList<TrackSegment> GetIncomingSegments(int stationId)
+    {
+        if (!_incomingAdjacency.TryGetValue(stationId, out var segmentIds))
+        {
+            return Array.Empty<TrackSegment>();
+        }
+
+        return segmentIds.Select(GetSegment).DistinctBy(segment => segment.Id).ToList();
+    }
+
+    public IReadOnlyList<TrackSegment> GetAdjacentSegments(int stationId)
+    {
+        return GetOutgoingSegments(stationId)
+            .Concat(GetIncomingSegments(stationId))
+            .DistinctBy(segment => segment.Id)
+            .ToList();
     }
 
     public bool TryGetSegmentBetween(int stationIdA, int stationIdB, out TrackSegment? segment)
     {
         segment = _segments.Values.FirstOrDefault(candidate =>
             (candidate.StartStationId == stationIdA && candidate.EndStationId == stationIdB) ||
-            (candidate.StartStationId == stationIdB && candidate.EndStationId == stationIdA));
+            (candidate.AllowsReverseTraversal && candidate.StartStationId == stationIdB && candidate.EndStationId == stationIdA));
 
         return segment is not null;
     }
@@ -144,11 +168,12 @@ public sealed class StationNetworkGraph
 
             unvisited.Remove(currentStationId);
 
-            foreach (var segment in GetAdjacentSegments(currentStationId))
+            foreach (var segment in GetOutgoingSegments(currentStationId))
             {
-                var neighborStationId = segment.StartStationId == currentStationId
-                    ? segment.EndStationId
-                    : segment.StartStationId;
+                if (!TryResolveNeighbor(segment, currentStationId, out var neighborStationId))
+                {
+                    continue;
+                }
 
                 if (!unvisited.Contains(neighborStationId))
                 {
@@ -201,9 +226,27 @@ public sealed class StationNetworkGraph
 
         foreach (var segment in GetSegmentsOrderedByVisualOrder())
         {
-            clone.AddSegment(segment.Clone());
+            clone.AddSegment(segment.Clone(), segment.AllowsReverseTraversal);
         }
 
         return clone;
+    }
+
+    private static bool TryResolveNeighbor(TrackSegment segment, int currentStationId, out int neighborStationId)
+    {
+        if (segment.StartStationId == currentStationId)
+        {
+            neighborStationId = segment.EndStationId;
+            return true;
+        }
+
+        if (segment.AllowsReverseTraversal && segment.EndStationId == currentStationId)
+        {
+            neighborStationId = segment.StartStationId;
+            return true;
+        }
+
+        neighborStationId = default;
+        return false;
     }
 }

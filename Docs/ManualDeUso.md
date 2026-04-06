@@ -3,39 +3,51 @@
 ## 1. Requisitos previos
 
 - .NET 8 SDK
-- Visual Studio 2026 recomendado
-- Workload de escritorio para WPF
+- Visual Studio con soporte WPF
+- restauración de paquetes NuGet habilitada
 
 ---
 
 ## 2. Apertura de la solución
 
 1. Abrir `HighRiskSimulator.sln`.
-2. Esperar restauración de paquetes NuGet.
+2. Esperar restauración de paquetes.
 3. Seleccionar `HighRiskSimulator` como proyecto de inicio.
 4. Ejecutar con `F5`.
 
 ---
 
-## 3. Modos de simulación
+## 3. Parámetros principales de la corrida
 
-## Aleatorio inteligente
-Usa una semilla reproducible para combinar:
-- demanda de pasajeros
-- clima
-- fallas
-- degradación operativa
-- reglas de seguridad
+### Modo de simulación
+- **Aleatorio inteligente**: jornada no guionizada con clima, demanda y eventualidades contextuales.
+- **Escenario específico**: reproduce casos preparados para validación.
 
-Si repites la misma semilla y opciones, la simulación debería repetir el mismo comportamiento lógico.
+### Semilla base
+Define el “carácter general” del día.
 
-## Escenario específico
-Inyecta incidentes programados para reproducir casos concretos.
+### Fecha simulada
+Afecta:
+- temporada
+- fines de semana
+- feriados
+- vacaciones
+- presión turística
 
-Escenarios incluidos:
-- Sobrecarga en temporada alta
-- Falla eléctrica general
-- Tormenta andina en cotas altas
+### Modo de presión
+- **Operación realista**: la mayoría de las jornadas deben ser estables.
+- **Entrenamiento intensificado**: sube la probabilidad de desvíos y presión operacional.
+
+### Velocidad
+- 1x
+- 2x
+- 3x
+
+### Cabinas por sentido
+Permite probar:
+- configuración base realista
+- presión moderada
+- estrés de separación
 
 ---
 
@@ -45,104 +57,201 @@ Escenarios incluidos:
 Pone el motor en ejecución continua.
 
 ### Pausar
-Detiene la evolución temporal sin destruir el estado.
+Detiene la corrida sin destruir el estado.
 
 ### Paso
-Avanza exactamente un tick lógico y vuelve a pausa.
+Avanza un tick lógico y vuelve a pausa.
 
 ### Reiniciar
-Reconstruye por completo el escenario con la semilla actual.
+Reconstruye la jornada completa con la configuración actual.
+
+### Simulacro instantáneo
+Crea una nueva corrida desde cero, la completa inmediatamente y exporta:
+- PDF
+- JSON
+
+### Finalizar y exportar
+Toma la corrida actual, la lleva al cierre y exporta:
+- PDF
+- JSON
+
+### Exportar reporte actual
+Genera reporte de la corrida tal como va en ese momento.
 
 ---
 
-## 5. Qué muestra la interfaz
+## 5. Inyección de fallas
 
-## Encabezado superior
+Primero se selecciona el objetivo:
+- sistema completo / auto
+- cabina específica
+
+Interpretación:
+- para fallas de alcance global (`falla eléctrica`, `tormenta`, `parada de emergencia`), la opción **sistema completo** actúa sobre toda la operación
+- para fallas focalizadas (`falla mecánica`, `sobrecarga`), la opción **auto** elige la cabina más cargada del snapshot actual
+
+Luego se puede inyectar:
+- falla mecánica
+- falla eléctrica
+- sobrecarga
+- tormenta
+- parada de emergencia
+
+Estas acciones sirven para:
+- validar protocolos
+- observar degradación
+- entrenar respuesta del sistema
+
+---
+
+## 6. Qué muestra la interfaz
+
+## Encabezado
 - estado operacional
 - tiempo simulado
-- clima actual
+- clima
 - pasajeros procesados
+- ocupación media
+- incidentes activos
+- barra de riesgo
 
-## Panel de control
-- modo de simulación
-- escenario guionizado
-- semilla
-- perfil operativo activo
+## Contexto de jornada
+- perfil del día
+- temporada detectada
+- modo de presión
+- visibilidad
+- hielo
+- semilla operacional derivada
+- rutas de exportación
 
-## Perfil operativo del sistema
-Es la visualización 1D del recorrido.
+## Pestaña Operación
+### Perfil operativo del sistema
+Vista 1D del recorrido Mukumbarí con:
+- estaciones
+- colas por sentido
+- reglas de embarque
+- cabinas con color por estado
 
-### Colores de cabina
+### Colores de cabinas
 - verde: operación normal
-- azul: cabina detenida en estación
-- naranja: frenado o alerta
-- rojo: falla crítica o fuera de servicio
+- azul: detenida en estación
+- naranja: alerta o frenado
+- rojo: condición crítica o fuera de servicio
 
-## Telemetría con ScottPlot
-Grafica en tiempo real:
-- riesgo agregado
+### Telemetría ScottPlot
+Grafica:
+- riesgo
 - ocupación media
 - presión climática
 
-## Log de eventos
-Muestra eventos relevantes con:
-- título
-- severidad
-- tiempo del evento
-- fuente
-- tipo
+La ventana temporal se mueve sola; ya no es necesario arrastrar la vista manualmente.
 
-## Tablas laterales
-- estado de cabinas
-- colas de estaciones
+## Pestaña Eventos y reportes
+- log de eventos recientes
+- descripción del flujo de exportación
+
+## Pestaña Cabinas y estaciones
+- tabla operativa de cabinas
+- tabla de colas y reglas por estación
 
 ---
 
-## 6. Validaciones manuales sugeridas
+## 7. Interpretación de la semilla
 
-## Validación 1: reproducibilidad
-1. Ejecutar modo aleatorio con una semilla fija.
-2. Observar eventos principales.
-3. Reiniciar con la misma semilla.
-4. Verificar que el comportamiento general se repite.
+La simulación ya no usa solo una semilla fija. Ahora hay dos niveles:
 
-## Validación 2: sobrecarga
-1. Seleccionar el escenario `Sobrecarga en temporada alta`.
-2. Iniciar simulación.
-3. Verificar evento de sobrecarga y aumento del riesgo.
+### Semilla base
+Controla la identidad general del día.
 
-## Validación 3: falla eléctrica
-1. Seleccionar `Falla eléctrica general`.
-2. Iniciar simulación.
-3. Verificar frenado de emergencia y degradación del sistema.
+### Semilla de variación operacional
+Se genera internamente en cada corrida.
 
-## Validación 4: clima extremo
-1. Seleccionar `Tormenta andina en cotas altas`.
-2. Iniciar simulación.
-3. Verificar reducción de velocidad, presión climática y eventos asociados.
+Resultado:
+- dos corridas con la misma semilla base se parecen mucho
+- pero no son copias exactas del mismo día
+
+Eso hace al simulador más realista.
 
 ---
 
-## 7. Ejecución de pruebas
+## 8. Reportes exportados
 
-Desde la raíz de la solución:
+Cada exportación genera:
+
+### PDF
+Incluye:
+- resumen ejecutivo
+- estado final
+- métricas consolidadas
+- tabla por estación
+- tabla por cabina
+- línea de tiempo de eventos
+- conclusiones de la jornada
+
+### JSON
+Incluye respaldo técnico serializado del reporte para auditoría o futura integración.
+
+### Ubicación
+Por defecto los artefactos se guardan dentro de la carpeta **Documentos/HighRiskSimulator/Exports/{fecha}** del usuario.
+
+---
+
+## 9. Validaciones manuales sugeridas
+
+### Validación 1: cola realista
+1. Ejecutar modo aleatorio.
+2. Verificar que Barinitas no acumula cola de descenso.
+3. Verificar que Pico Espejo no acumula cola de ascenso.
+4. Verificar que estaciones intermedias solo crecen cuando llegan cabinas y descargan pasajeros.
+
+### Validación 2: temporada alta
+1. Seleccionar una fecha de agosto o diciembre.
+2. Reiniciar.
+3. Verificar incremento de presión turística y mayores colas en Barinitas.
+
+### Validación 3: simulacro instantáneo
+1. Configurar semilla, fecha y presión.
+2. Pulsar `Simulacro instantáneo`.
+3. Verificar generación de PDF y JSON.
+
+### Validación 4: cierre acelerado desde una corrida activa
+1. Iniciar simulación.
+2. Dejar correr unos minutos.
+3. Pulsar `Finalizar y exportar`.
+4. Verificar que el reporte parte del estado actual y no de una corrida nueva.
+
+### Validación 5: tormenta e impacto en tramos altos
+1. Iniciar simulación.
+2. Pulsar `Tormenta`.
+3. Observar reducción de velocidad, más alerta y aumento del riesgo.
+
+---
+
+## 10. Pruebas automáticas
+
+Desde la raíz:
 
 ```bash
 dotnet test
 ```
 
-Estas pruebas validan la base crítica del proyecto.
+Las pruebas cubren:
+- lista circular
+- grafo
+- heap
+- pila
+- reglas terminales de cola
+- comportamiento base del motor
 
 ---
 
-## 8. Qué no hace todavía esta versión
+## 11. Lo que aún no hace esta versión
 
-Aún no incluye:
-- entorno 2D sandbox
-- persistencia SQLite real
-- pasajeros individuales
-- física profunda de cable, tensión o torque
-- rescate/evacuación detallados
-- múltiples cabinas por tramo en operación avanzada
+Todavía no incluye:
+- persistencia SQLite real conectada
+- terreno 2D o sandbox visual completo
+- pasajeros individuales con identidad propia
+- física industrial profunda de cable, tensión o torque
+- replay histórico desde base de datos
 
-Eso no es un error: esta fase busca primero un núcleo de simulación correcto.
+La fase actual se centra en realismo operativo y arquitectura correcta.

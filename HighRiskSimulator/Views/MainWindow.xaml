@@ -3,16 +3,64 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
         Title="HighRisk Simulator"
-        Width="1450"
-        Height="930"
-        MinWidth="1280"
-        MinHeight="820"
+        Width="1380"
+        Height="920"
+        MinWidth="980"
+        MinHeight="700"
         WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
         Background="{StaticResource WindowBackgroundBrush}">
+    <Window.Resources>
+        <Style x:Key="WrappedCellTextStyle" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="TextTrimming" Value="None"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ReadableDataGridStyle" TargetType="DataGrid">
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserResizeColumns" Value="True"/>
+            <Setter Property="CanUserReorderColumns" Value="True"/>
+            <Setter Property="CanUserSortColumns" Value="True"/>
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="RowHeaderWidth" Value="0"/>
+            <Setter Property="ColumnHeaderHeight" Value="36"/>
+            <Setter Property="MinRowHeight" Value="34"/>
+            <Setter Property="AlternatingRowBackground" Value="#F8FAFC"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+        </Style>
+
+        <Style x:Key="DisplayDataGridStyle" TargetType="DataGrid" BasedOn="{StaticResource ReadableDataGridStyle}"/>
+
+        <Style x:Key="DisplayDataGridHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="{StaticResource TitleBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+
+        <Style x:Key="DisplayDataGridCellStyle" TargetType="DataGridCell">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="TextBlock.TextWrapping" Value="NoWrap"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="18">
+                  HorizontalScrollBarVisibility="Auto"
+                  CanContentScroll="False">
+        <Grid Margin="18" MinWidth="1180">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -24,66 +72,71 @@
                 Padding="18">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="420"/>
+                    <ColumnDefinition Width="1.4*"/>
+                    <ColumnDefinition Width="1*"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel>
-                    <TextBlock Text="HighRisk Simulator"
-                               FontSize="29"
+                <StackPanel Margin="0,0,18,0">
+                    <TextBlock Text="HighRisk Simulator - Mukumbarí"
+                               FontSize="30"
                                FontWeight="Bold"
                                Foreground="{StaticResource TitleBrush}"/>
-                    <TextBlock Text="Base profesional del simulador 1D inspirada en el Sistema Teleférico Mukumbarí."
+                    <TextBlock Text="Simulador estadístico-operativo con clima, múltiples cabinas por tramo, colas realistas, árbol causal interno, inyección de fallas y exportación de reportes."
                                Margin="0,8,0,0"
                                FontSize="14"
                                Foreground="{StaticResource MutedTextBrush}"
                                TextWrapping="Wrap"/>
                     <TextBlock Text="{Binding NarrativeText}"
                                Margin="0,14,0,0"
-                               FontSize="15"
+                               FontSize="16"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TitleBrush}"
                                TextWrapping="Wrap"/>
+                    <StackPanel Margin="0,16,0,0">
+                        <TextBlock Text="Riesgo agregado" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <ProgressBar Value="{Binding CurrentRiskValue, Mode=OneWay}" Maximum="100" Height="12" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding CurrentRiskText}" Margin="0,6,0,0" Foreground="{StaticResource MutedTextBrush}"/>
+                    </StackPanel>
                 </StackPanel>
 
-                <Grid Grid.Column="1">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Row="0" Grid.Column="0" Margin="6" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                <WrapPanel Grid.Column="1" HorizontalAlignment="Stretch">
+                    <Border Width="190" Margin="0,0,12,12" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
                         <StackPanel>
                             <TextBlock Text="Estado" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
-                            <TextBlock Text="{Binding OperationalStateText}" Margin="0,6,0,0" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Text="{Binding OperationalStateText}" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
-
-                    <Border Grid.Row="0" Grid.Column="1" Margin="6" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                    <Border Width="190" Margin="0,0,12,12" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
                         <StackPanel>
                             <TextBlock Text="Tiempo simulado" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
-                            <TextBlock Text="{Binding ElapsedText}" Margin="0,6,0,0" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Text="{Binding ElapsedText}" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
                         </StackPanel>
                     </Border>
-
-                    <Border Grid.Row="1" Grid.Column="0" Margin="6" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                    <Border Width="190" Margin="0,0,12,12" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
                         <StackPanel>
                             <TextBlock Text="Clima actual" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
-                            <TextBlock Text="{Binding CurrentWeatherText}" Margin="0,6,0,0" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding CurrentWeatherText}" Margin="0,6,0,0" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
-
-                    <Border Grid.Row="1" Grid.Column="1" Margin="6" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                    <Border Width="190" Margin="0,0,12,12" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
                         <StackPanel>
                             <TextBlock Text="Pasajeros procesados" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
-                            <TextBlock Text="{Binding ProcessedPassengersText}" Margin="0,6,0,0" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Text="{Binding ProcessedPassengersText}" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
                         </StackPanel>
                     </Border>
-                </Grid>
+                    <Border Width="190" Margin="0,0,12,12" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                        <StackPanel>
+                            <TextBlock Text="Ocupación media" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                            <TextBlock Text="{Binding AverageOccupancyText}" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Width="190" Margin="0,0,12,12" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                        <StackPanel>
+                            <TextBlock Text="Incidentes activos" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                            <TextBlock Text="{Binding ActiveIncidentText}" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
             </Grid>
         </Border>
 
@@ -91,375 +144,348 @@
                 Style="{StaticResource CardBorderStyle}"
                 Margin="0,0,0,16"
                 Padding="16">
-            <WrapPanel>
-                <StackPanel Width="210" Margin="0,0,14,0">
-                    <TextBlock Text="Modo de simulación" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
-                    <ComboBox ItemsSource="{Binding SimulationModes}"
-                              SelectedItem="{Binding SelectedMode}"
-                              DisplayMemberPath="DisplayName"
-                              Height="34"/>
-                </StackPanel>
+            <StackPanel>
+                <WrapPanel>
+                    <StackPanel Width="210" Margin="0,0,14,12">
+                        <TextBlock Text="Modo de simulación" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <ComboBox ItemsSource="{Binding SimulationModes}"
+                                  SelectedItem="{Binding SelectedMode}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="34"/>
+                    </StackPanel>
 
-                <StackPanel Width="255" Margin="0,0,14,0">
-                    <TextBlock Text="Escenario guionizado" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
-                    <ComboBox ItemsSource="{Binding ScenarioOptions}"
-                              SelectedItem="{Binding SelectedScenario}"
-                              DisplayMemberPath="DisplayName"
-                              Height="34"
-                              IsEnabled="{Binding IsScriptedMode}"/>
-                </StackPanel>
+                    <StackPanel Width="255" Margin="0,0,14,12">
+                        <TextBlock Text="Escenario guionizado" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <ComboBox ItemsSource="{Binding ScenarioOptions}"
+                                  SelectedItem="{Binding SelectedScenario}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="34"
+                                  IsEnabled="{Binding IsScriptedMode, Mode=OneWay}"/>
+                    </StackPanel>
 
-                <StackPanel Width="150" Margin="0,0,14,0">
-                    <TextBlock Text="Semilla" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
-                    <TextBox Text="{Binding RandomSeed, UpdateSourceTrigger=PropertyChanged}" Height="34"/>
-                </StackPanel>
+                    <StackPanel Width="150" Margin="0,0,14,12">
+                        <TextBlock Text="Semilla base" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <TextBox Text="{Binding RandomSeed, UpdateSourceTrigger=PropertyChanged}" Height="34"/>
+                    </StackPanel>
 
-                <StackPanel Width="220" Margin="0,0,14,0">
-                    <TextBlock Text="Perfil operativo activo" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
-                    <Border Height="52"
-                            Background="#F8FAFC"
-                            BorderBrush="#E2E8F0"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="8,7,8,0" Width="229">
-                        <TextBlock Text="{Binding CurrentDayProfileText}"
-                                   Foreground="{StaticResource MutedTextBrush}"
-                                   TextWrapping="Wrap" Margin="0,0,0,9" Width="200"/>
-                    </Border>
-                </StackPanel>
+                    <StackPanel Width="165" Margin="0,0,14,12">
+                        <TextBlock Text="Fecha simulada" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <DatePicker SelectedDate="{Binding SelectedSimulationDate}" Height="34"/>
+                    </StackPanel>
 
-                <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
-                    <Button Content="Iniciar"
-                            Command="{Binding StartCommand}"
-                            Style="{StaticResource AccentButtonStyle}"
-                            Width="110"/>
-                    <Button Content="Pausar"
-                            Command="{Binding PauseCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Width="110"/>
-                    <Button Content="Paso"
-                            Command="{Binding StepCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Width="110"/>
-                    <Button Content="Reiniciar"
-                            Command="{Binding ResetCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Width="120"
-                            Margin="0"/>
-                </StackPanel>
-            </WrapPanel>
+                    <StackPanel Width="220" Margin="0,0,14,12">
+                        <TextBlock Text="Modo de presión" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <ComboBox ItemsSource="{Binding PressureModeOptions}"
+                                  SelectedItem="{Binding SelectedPressureMode}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="34"/>
+                    </StackPanel>
+
+                    <StackPanel Width="170" Margin="0,0,14,12">
+                        <TextBlock Text="Velocidad" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <ComboBox ItemsSource="{Binding TimeScaleOptions}"
+                                  SelectedItem="{Binding SelectedTimeScale}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="34"/>
+                    </StackPanel>
+
+                    <StackPanel Width="205" Margin="0,0,14,12">
+                        <TextBlock Text="Cabinas por sentido" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <ComboBox ItemsSource="{Binding CabinDensityOptions}"
+                                  SelectedItem="{Binding SelectedCabinDensity}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="34"/>
+                    </StackPanel>
+                </WrapPanel>
+
+                <WrapPanel Margin="0,8,0,0">
+                    <Button Content="Iniciar" Command="{Binding StartCommand}" Style="{StaticResource AccentButtonStyle}" Width="110"/>
+                    <Button Content="Pausar" Command="{Binding PauseCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="110"/>
+                    <Button Content="Paso" Command="{Binding StepCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="110"/>
+                    <Button Content="Reiniciar" Command="{Binding ResetCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="120"/>
+                    <Button Content="Simulacro instantáneo" Command="{Binding InstantSimulationCommand}" Style="{StaticResource AccentButtonStyle}" Width="185"/>
+                    <Button Content="Finalizar y exportar" Command="{Binding FastForwardAndExportCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="175"/>
+                    <Button Content="Exportar reporte actual" Command="{Binding ExportReportCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="185"/>
+                </WrapPanel>
+
+                <Separator Margin="0,16,0,12"/>
+
+                <WrapPanel>
+                    <StackPanel Width="330" Margin="0,0,14,12">
+                        <TextBlock Text="Objetivo de inyección" Margin="0,0,0,6" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <ComboBox ItemsSource="{Binding InjectionTargetOptions}"
+                                  SelectedItem="{Binding SelectedInjectionTarget}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="34"/>
+                    </StackPanel>
+
+                    <Button Content="Falla mecánica" Command="{Binding InjectMechanicalFailureCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="150" Margin="0,24,10,12"/>
+                    <Button Content="Falla eléctrica" Command="{Binding InjectElectricalFailureCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="150" Margin="0,24,10,12"/>
+                    <Button Content="Sobrecarga" Command="{Binding InjectOverloadCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="125" Margin="0,24,10,12"/>
+                    <Button Content="Tormenta" Command="{Binding InjectStormCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="120" Margin="0,24,10,12"/>
+                    <Button Content="Parada de emergencia" Command="{Binding InjectEmergencyStopCommand}" Style="{StaticResource AccentButtonStyle}" Width="180" Margin="0,24,0,12"/>
+                </WrapPanel>
+            </StackPanel>
         </Border>
 
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2.25*"/>
-                <ColumnDefinition Width="1.2*"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="390"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+        <Border Grid.Row="2"
+                Style="{StaticResource CardBorderStyle}"
+                Margin="0,0,0,16"
+                Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.05*"/>
+                    <ColumnDefinition Width="0.95*"/>
+                </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="0"
-                    Grid.Column="0"
-                    Style="{StaticResource CardBorderStyle}"
-                    Margin="0,0,16,16"
-                    Padding="16">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <StackPanel>
-                        <TextBlock Text="Perfil operativo del sistema"
-                                   FontSize="18"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource TitleBrush}"/>
-                        <TextBlock Text="Animación 1D sobre un perfil altimétrico aproximado del recorrido Mukumbarí."
-                                   Margin="0,6,0,0"
-                                   Foreground="{StaticResource MutedTextBrush}"/>
-                    </StackPanel>
-
-                    <Canvas x:Name="RouteCanvas"
-                            Grid.Row="1"
-                            Margin="0,16,0,0"
-                            Background="#0F172A"
-                            ClipToBounds="True"/>
-                </Grid>
-            </Border>
-
-            <Border Grid.Row="0"
-                    Grid.Column="1"
-                    Style="{StaticResource CardBorderStyle}"
-                    Margin="0,0,0,16"
-                    Padding="16">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <StackPanel>
-                        <TextBlock Text="Telemetría con ScottPlot"
-                                   FontSize="18"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource TitleBrush}"/>
-                        <TextBlock Text="Riesgo, ocupación media y presión climática en tiempo real."
-                                   Margin="0,6,0,0"
-                                   Foreground="{StaticResource MutedTextBrush}"/>
-                    </StackPanel>
-
-                    <ScottPlot:WpfPlot x:Name="MetricsPlot"
-                                       Grid.Row="1"
-                                       Margin="0,16,0,0"/>
-                </Grid>
-            </Border>
-
-            <Border Grid.Row="1"
-                    Grid.Column="0"
-                    Style="{StaticResource CardBorderStyle}"
-                    Margin="0,0,16,0"
-                    Padding="16">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.2*"/>
-                        <ColumnDefinition Width="0.95*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Text="Log de eventos"
-                                   FontSize="18"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource TitleBrush}"/>
-
-                        <ListBox Grid.Row="1"
-                                 Margin="0,14,0,0"
-                                 ItemsSource="{Binding EventLog}"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 HorizontalContentAlignment="Stretch">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="0,0,0,10"
-                                            Padding="12"
-                                            Background="#F8FAFC"
-                                            BorderBrush="#E2E8F0"
-                                            BorderThickness="1"
-                                            CornerRadius="10">
-                                        <StackPanel>
-                                            <DockPanel LastChildFill="False">
-                                                <TextBlock Text="{Binding Title}"
-                                                           FontWeight="SemiBold"
-                                                           FontSize="14"
-                                                           Foreground="{StaticResource TitleBrush}"/>
-                                                <Border DockPanel.Dock="Right"
-                                                        Background="#E2E8F0"
-                                                        Padding="8,3"
-                                                        CornerRadius="10">
-                                                    <TextBlock Text="{Binding Severity}"
-                                                               FontSize="11"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="{StaticResource TitleBrush}"/>
-                                                </Border>
-                                            </DockPanel>
-
-                                            <TextBlock Text="{Binding Description}"
-                                                       Margin="0,6,0,0"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{StaticResource MutedTextBrush}"/>
-
-                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                <TextBlock Text="{Binding OccurredAt, StringFormat={}{0:mm\:ss}}"
-                                                           FontSize="11"
-                                                           Foreground="#64748B"/>
-                                                <TextBlock Text="   •   " FontSize="11" Foreground="#94A3B8"/>
-                                                <TextBlock Text="{Binding SourceTag}" FontSize="11" Foreground="#64748B"/>
-                                                <TextBlock Text="   •   " FontSize="11" Foreground="#94A3B8"/>
-                                                <TextBlock Text="{Binding Type}" FontSize="11" Foreground="#64748B"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Grid>
-
-                    <Grid Grid.Column="1" Margin="16,0,0,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,8">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Text="Cabinas"
-                                           FontSize="16"
-                                           FontWeight="Bold"
-                                           Foreground="{StaticResource TitleBrush}"/>
-
-                                <DataGrid Grid.Row="1"
-                                          Margin="0,12,0,0"
-                                          ItemsSource="{Binding CabinStates}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="True"
-                                          HeadersVisibility="Column"
-                                          CanUserAddRows="False"
-                                          CanUserDeleteRows="False"
-                                          GridLinesVisibility="Horizontal">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
-                                        <DataGridTextColumn Header="Tramo" Binding="{Binding SegmentName}" Width="*"/>
-                                        <DataGridTextColumn Header="Sentido" Binding="{Binding Direction}" Width="90"/>
-                                        <DataGridTextColumn Header="Estado" Binding="{Binding OperationalState}" Width="115"/>
-                                        <DataGridTextColumn Header="Carga" Binding="{Binding PassengerCount}" Width="70"/>
-                                        <DataGridTextColumn Header="Cap." Binding="{Binding Capacity}" Width="60"/>
-                                        <DataGridTextColumn Header="Vel." Binding="{Binding VelocityMetersPerSecond, StringFormat={}{0:F1}}" Width="70"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Grid>
+                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                    <TextBlock Text="Contexto de jornada" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                    <WrapPanel Margin="0,12,0,0">
+                        <Border Width="220" Margin="0,0,12,12" Padding="10" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="Perfil del día" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                                <TextBlock Text="{Binding CurrentDayProfileText}" Margin="0,6,0,0" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                            </StackPanel>
                         </Border>
-
-                        <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,8,0,0">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Text="Estaciones"
-                                           FontSize="16"
-                                           FontWeight="Bold"
-                                           Foreground="{StaticResource TitleBrush}"/>
-
-                                <DataGrid Grid.Row="1"
-                                          Margin="0,12,0,0"
-                                          ItemsSource="{Binding StationStates}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="True"
-                                          HeadersVisibility="Column"
-                                          CanUserAddRows="False"
-                                          CanUserDeleteRows="False"
-                                          GridLinesVisibility="Horizontal">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Estación" Binding="{Binding Name}" Width="*"/>
-                                        <DataGridTextColumn Header="Asc." Binding="{Binding WaitingAscendingPassengers}" Width="70"/>
-                                        <DataGridTextColumn Header="Desc." Binding="{Binding WaitingDescendingPassengers}" Width="70"/>
-                                        <DataGridTextColumn Header="Total" Binding="{Binding TotalWaitingPassengers}" Width="70"/>
-                                        <DataGridTextColumn Header="Alt." Binding="{Binding AltitudeMeters, StringFormat={}{0:F0} m}" Width="90"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Grid>
+                        <Border Width="220" Margin="0,0,12,12" Padding="10" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="Temporada" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                                <TextBlock Text="{Binding SeasonalityText}" Margin="0,6,0,0" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                            </StackPanel>
                         </Border>
-                    </Grid>
-                </Grid>
-            </Border>
+                        <Border Width="220" Margin="0,0,12,12" Padding="10" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="Modo de presión" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                                <TextBlock Text="{Binding PressureModeText}" Margin="0,6,0,0" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Width="220" Margin="0,0,12,12" Padding="10" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="Visibilidad / hielo" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                                <TextBlock Margin="0,6,0,0" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}">
+                                    <Run Text="Visibilidad: "/><Run Text="{Binding VisibilityText}"/>
+                                    <LineBreak/>
+                                    <Run Text="Hielo: "/><Run Text="{Binding IcingText}"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </WrapPanel>
+                </StackPanel>
 
-            <Border Grid.Row="1"
-                    Grid.Column="1"
-                    Style="{StaticResource CardBorderStyle}"
-                    Padding="16">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="Trazabilidad y exportación" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                    <TextBlock Text="{Binding ScenarioDescriptionText}" Margin="0,12,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}"/>
+                    <TextBlock Text="{Binding ExportStatusText}" Margin="0,12,0,0" TextWrapping="Wrap" Foreground="{StaticResource TitleBrush}" FontWeight="SemiBold"/>
 
-                    <TextBlock Text="Notas de operación"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Foreground="{StaticResource TitleBrush}"/>
-
-                    <TextBlock Grid.Row="1"
-                               Margin="0,10,0,0"
-                               Text="{Binding ScenarioDescriptionText}"
-                               TextWrapping="Wrap"
-                               Foreground="{StaticResource MutedTextBrush}"/>
-
-                    <StackPanel Grid.Row="2" Margin="0,16,0,0">
-                        <TextBlock Text="Riesgo agregado"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TitleBrush}"/>
-                        <ProgressBar Height="14"
-                                     Margin="0,8,0,0"
-                                     Maximum="100"
-                                     Value="{Binding CurrentRiskValue}"/>
-                        <TextBlock Text="{Binding CurrentRiskText}"
-                                   Margin="0,6,0,0"
-                                   Foreground="{StaticResource MutedTextBrush}"/>
-                    </StackPanel>
-
-                    <Grid Grid.Row="3" Margin="0,16,0,0">
+                    <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="150"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                        <Border Grid.Column="0" Margin="0,0,8,0" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
-                            <StackPanel>
-                                <TextBlock Text="Ocupación media" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
-                                <TextBlock Text="{Binding AverageOccupancyText}" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
-                            </StackPanel>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,4,8,4" Text="Fecha simulada:" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Margin="0,4,0,4" Text="{Binding SimulationDateText}" Foreground="{StaticResource MutedTextBrush}"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,4,8,4" Text="Semilla variación:" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,4,0,4" Text="{Binding OperationalVarianceSeedText}" Foreground="{StaticResource MutedTextBrush}"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,6,8,4" Text="PDF:" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <Border Grid.Row="2" Grid.Column="1" Margin="0,4,0,4" Padding="8" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8">
+                            <TextBlock Text="{Binding LastExportPdfPath}" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}"/>
                         </Border>
 
-                        <Border Grid.Column="1" Margin="8,0,0,0" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
-                            <StackPanel>
-                                <TextBlock Text="Incidentes activos" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
-                                <TextBlock Text="{Binding ActiveIncidentText}" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
-                            </StackPanel>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,6,8,4" Text="JSON:" FontWeight="SemiBold" Foreground="{StaticResource TitleBrush}"/>
+                        <Border Grid.Row="3" Grid.Column="1" Margin="0,4,0,4" Padding="8" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8">
+                            <TextBlock Text="{Binding LastExportJsonPath}" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}"/>
                         </Border>
                     </Grid>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-                    <Border Grid.Row="4" Margin="0,18,0,0" Padding="14" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12">
+        <TabControl Grid.Row="3" MinHeight="520">
+            <TabItem Header="Operación">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto"
+                              CanContentScroll="False">
+                    <Grid Margin="10" MinWidth="1080">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="3*"/>
+                        <RowDefinition Height="2*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Perfil operativo del sistema" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                                <TextBlock Text="Vista 1D guiada del trayecto Mukumbarí con seguimiento automático de cabinas por dirección y estado. Se ajustó el espaciado visual para evitar solapamientos y mejorar lectura." Margin="0,6,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <ScrollViewer x:Name="RouteCanvasScrollViewer"
+                                          Grid.Row="1"
+                                          Margin="0,16,0,0"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Auto"
+                                          CanContentScroll="False">
+                                <Canvas x:Name="RouteCanvas"
+                                        Width="1520"
+                                        Height="540"
+                                        MinWidth="1360"
+                                        MinHeight="500"
+                                        Background="#0F172A"
+                                        ClipToBounds="True"/>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,16,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Telemetría con ScottPlot" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                                <TextBlock Text="Riesgo, ocupación y presión climática con ventana móvil automática para no depender de paneo manual." Margin="0,6,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <ScottPlot:WpfPlot x:Name="MetricsPlot"
+                                               Grid.Row="1"
+                                               Margin="0,16,0,0"
+                                               MinHeight="270"/>
+                        </Grid>
+                    </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Eventos y reportes">
+                <Grid Margin="10" MinWidth="1080">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,16">
                         <StackPanel>
-                            <TextBlock Text="Leyenda visual"
-                                       FontSize="15"
-                                       FontWeight="Bold"
-                                       Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Text="Eventos recientes y trazabilidad" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Text="Esta tabla muestra la línea de tiempo más reciente del simulador. Las columnas se dejaron explícitamente en solo lectura para evitar errores de binding y hacer más estable la interfaz." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}"/>
+                        </StackPanel>
+                    </Border>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <Rectangle Width="16" Height="16" Fill="#22C55E" RadiusX="3" RadiusY="3"/>
-                                <TextBlock Text="  Operación normal o crucero" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}"/>
-                            </StackPanel>
+                    <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="12" Margin="0,0,0,16">
+                        <DataGrid ItemsSource="{Binding EventLog}"
+                                  Style="{StaticResource DisplayDataGridStyle}"
+                                  ColumnHeaderStyle="{StaticResource DisplayDataGridHeaderStyle}"
+                                  CellStyle="{StaticResource DisplayDataGridCellStyle}"
+                                  MinHeight="320"
+                                  FrozenColumnCount="1"
+                                  CanUserResizeColumns="True"
+                                  CanUserReorderColumns="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Hora" Binding="{Binding OccurredAtDisplay, Mode=OneWay}" Width="96"/>
+                                <DataGridTextColumn Header="Severidad" Binding="{Binding SeverityDisplay, Mode=OneWay}" Width="132"/>
+                                <DataGridTextColumn Header="Evento" Binding="{Binding TypeDisplay, Mode=OneWay}" Width="170"/>
+                                <DataGridTextColumn Header="Título" Binding="{Binding Title, Mode=OneWay}" Width="260"/>
+                                <DataGridTextColumn Header="Ubicación" Binding="{Binding LocationDisplay, Mode=OneWay}" Width="210"/>
+                                <DataGridTextColumn Header="Fuente" Binding="{Binding SourceTag, Mode=OneWay}" Width="138"/>
+                                <DataGridTextColumn Header="Descripción" Binding="{Binding Description, Mode=OneWay}" Width="420" ElementStyle="{StaticResource WrappedCellTextStyle}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Rectangle Width="16" Height="16" Fill="#38BDF8" RadiusX="3" RadiusY="3"/>
-                                <TextBlock Text="  Cabina detenida en estación" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}"/>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Rectangle Width="16" Height="16" Fill="#F59E0B" RadiusX="3" RadiusY="3"/>
-                                <TextBlock Text="  Frenado o condición de alerta" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}"/>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Rectangle Width="16" Height="16" Fill="#EF4444" RadiusX="3" RadiusY="3"/>
-                                <TextBlock Text="  Falla crítica o fuera de servicio" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}"/>
-                            </StackPanel>
-
-                            <TextBlock Margin="0,14,0,0"
-                                       Text="La arquitectura ya quedó lista para una futura migración a un sandbox 2D: el motor vive fuera de WPF y la UI solo consume snapshots."
-                                       TextWrapping="Wrap"
-                                       Foreground="{StaticResource MutedTextBrush}"/>
+                    <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}" Padding="16">
+                        <StackPanel>
+                            <TextBlock Text="Notas de exportación" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Text="El simulacro instantáneo y el cierre acelerado generan un PDF estructurado y un JSON técnico. El PDF prioriza tablas, métricas consolidadas y línea de tiempo de eventos, y la exportación corre fuera del hilo principal para evitar bloqueos de la ventana." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}"/>
                         </StackPanel>
                     </Border>
                 </Grid>
-            </Border>
+            </TabItem>
+
+            <TabItem Header="Cabinas y estaciones">
+                <Grid Margin="10" MinWidth="1080">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*"/>
+                        <ColumnDefinition Width="1*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="12" Margin="0,0,16,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Cabinas" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Grid.Row="0" Margin="0,28,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Text="Solo se muestran variables operativas clave para que la lectura sea estadística pero comprensible."/>
+                            <DataGrid Grid.Row="1"
+                                      Margin="0,44,0,0"
+                                      ItemsSource="{Binding CabinStates}"
+                                      Style="{StaticResource DisplayDataGridStyle}"
+                                      ColumnHeaderStyle="{StaticResource DisplayDataGridHeaderStyle}"
+                                      CellStyle="{StaticResource DisplayDataGridCellStyle}"
+                                      MinHeight="320"
+                                      CanUserResizeColumns="True"
+                                      CanUserReorderColumns="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding Code, Mode=OneWay}" Width="96"/>
+                                    <DataGridTextColumn Header="Tramo" Binding="{Binding SegmentName, Mode=OneWay}" Width="220"/>
+                                    <DataGridTextColumn Header="Sentido" Binding="{Binding DirectionDisplay, Mode=OneWay}" Width="90"/>
+                                    <DataGridTextColumn Header="Estado" Binding="{Binding OperationalStateDisplay, Mode=OneWay}" Width="180"/>
+                                    <DataGridTextColumn Header="Alerta" Binding="{Binding AlertLevelDisplay, Mode=OneWay}" Width="100"/>
+                                    <DataGridTextColumn Header="Pasajeros" Binding="{Binding PassengerCountDisplay, Mode=OneWay}" Width="115"/>
+                                    <DataGridTextColumn Header="Ocupación" Binding="{Binding OccupancyLabel, Mode=OneWay}" Width="150"/>
+                                    <DataGridTextColumn Header="Velocidad" Binding="{Binding VelocityMetersPerSecond, Mode=OneWay, StringFormat={}{0:F2} m/s}" Width="118"/>
+                                    <DataGridTextColumn Header="Salud del sistema" Binding="{Binding HealthSummaryDisplay, Mode=OneWay}" Width="240"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Padding="12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Estaciones" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TitleBrush}"/>
+                            <TextBlock Grid.Row="0" Margin="0,28,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Text="Se priorizan las colas activas y la regla operacional de cada estación para lectura rápida."/>
+                            <DataGrid Grid.Row="1"
+                                      Margin="0,44,0,0"
+                                      ItemsSource="{Binding StationStates}"
+                                      Style="{StaticResource DisplayDataGridStyle}"
+                                      ColumnHeaderStyle="{StaticResource DisplayDataGridHeaderStyle}"
+                                      CellStyle="{StaticResource DisplayDataGridCellStyle}"
+                                      MinHeight="320"
+                                      CanUserResizeColumns="True"
+                                      CanUserReorderColumns="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Estación" Binding="{Binding Name, Mode=OneWay}" Width="178"/>
+                                    <DataGridTextColumn Header="Altitud" Binding="{Binding AltitudeMeters, Mode=OneWay, StringFormat={}{0:F0} m}" Width="98"/>
+                                    <DataGridTextColumn Header="Cola subida" Binding="{Binding WaitingAscendingPassengers, Mode=OneWay}" Width="108"/>
+                                    <DataGridTextColumn Header="Cola bajada" Binding="{Binding WaitingDescendingPassengers, Mode=OneWay}" Width="108"/>
+                                    <DataGridTextColumn Header="Total en espera" Binding="{Binding TotalWaitingPassengers, Mode=OneWay}" Width="112"/>
+                                    <DataGridTextColumn Header="Regla operativa" Binding="{Binding BoardingRulesDisplay, Mode=OneWay}" Width="150"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
         </Grid>
-    </Grid>
     </ScrollViewer>
 </Window>

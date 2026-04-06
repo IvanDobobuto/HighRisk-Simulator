@@ -1,43 +1,91 @@
 # HighRisk Simulator
 
-Base profesional del simulador de análisis de riesgo para teleféricos, rediseñada sobre **.NET 8 + WPF** para dejar un núcleo de simulación sólido, extensible y listo para crecer hacia un entorno visual **Sandbox 2D** en futuras iteraciones.
+Simulador estadístico-operativo de teleférico construido sobre **.NET 8 + WPF**, rediseñado para representar de forma más realista una jornada del sistema Mukumbarí mediante:
 
-Esta iteración reemplaza el starter original por una arquitectura por capas, un motor determinista por ticks, estructuras de datos manuales propias y una interfaz WPF mucho más robusta, manteniendo la esencia académica del proyecto y preservando el contenido del README original al final de este archivo.
+- motor por ticks con **delta time escalable** (1x, 2x, 3x)
+- **múltiples cabinas por tramo** configurables
+- **lista circular doblemente enlazada** para la gestión cíclica de cabinas
+- **grafo dirigido** para estaciones y conexiones
+- **heap mínimo manual** para contingencias y acciones futuras
+- **pila enlazada manual** para historial reciente de eventos
+- **árbol causal interno** para memoria contextual de eventualidades
+- clima, estacionalidad y demanda no forzada
+- simulacro instantáneo con **exportación a PDF y JSON**
+- base desacoplada para persistencia futura con **SQLite**
+
+La prioridad de esta iteración fue acercar el simulador a una jornada creíble: no todos los días deben terminar en catástrofe, pero sí deben existir condiciones, memorias y combinaciones que permitan que los incidentes emerjan cuando el entorno realmente los favorece.
 
 ---
 
 ## Estado actual del proyecto
 
 ### Prioridad alta completada
-- Motor de simulación con **tiempo fijo por ticks**.
-- Física cinemática base: posición, velocidad, aceleración, frenado de servicio y frenado de emergencia.
-- Soporte para **estaciones conectadas por grafo**.
-- Implementación manual de **lista circular doblemente enlazada** para modelar orden cíclico de cabinas.
-- Soporte para operación por tramos con cabinas, estaciones, colas de pasajeros y reglas de seguridad.
+- Motor principal con **tiempo fijo por ticks** y escalamiento 1x, 2x y 3x.
+- Base física y lógica de movimiento para cabinas por tramo.
+- Modelo dirigido de estaciones y segmentos usando **grafo manual**.
+- Gestión cíclica de cabinas con **lista circular doblemente enlazada**.
+- Configuración de **múltiples cabinas por sentido y por tramo**.
+- Interfaz preparada para escenarios reales e intensificados.
 
 ### Prioridad media completada
-- Sistema de eventos con:
+- Sistema de eventos no forzado con:
   - sobrecarga
   - falla mecánica
   - falla eléctrica
+  - clima extremo
   - frenado de emergencia
   - cabina fuera de servicio
-  - pérdida de separación segura
-  - accidente por escalamiento de severidad
-  - clima extremo
-- Modo **aleatorio inteligente** reproducible por semilla.
-- Modo **escenario específico** con incidentes programados.
+  - pérdida de separación
+  - accidente por escalamiento severo
+- **cola de prioridad / heap** para incidentes programados, retornos y transferencias futuras.
+- **árbol causal interno** para encadenamiento contextual de eventualidades.
+- temporadas y feriados venezolanos con impacto sobre afluencia.
+- dos perfiles de presión:
+  - **Operación realista**
+  - **Entrenamiento intensificado**
 
-### UI completada
-- Interfaz WPF reorganizada profesionalmente.
-- Visualización 1D sobre perfil altimétrico inspirado en Mukumbarí.
-- Telemetría en tiempo real con **ScottPlot**.
-- Log de eventos, panel de cabinas, panel de estaciones y tarjetas de estado.
+### Prioridad baja completada
+- Interfaz WPF reorganizada con scroll horizontal/vertical para pantallas pequeñas.
+- Panel de control con inyección manual de fallas.
+- telemetría con **ScottPlot** y seguimiento automático de la ventana temporal.
+- exportación de reporte estructurado en **PDF** y respaldo técnico en **JSON**.
 
-### Calidad de base completada
-- Solución separada en múltiples proyectos.
-- Persistencia desacoplada mediante interfaz lista para SQLite futura.
-- Conjunto inicial de pruebas unitarias para motor y estructuras de datos.
+---
+
+## Qué cambió respecto a la versión anterior
+
+### 1) Colas mucho más realistas
+Ahora las colas respetan reglas operativas de borde:
+- **Barinitas** no genera cola de descenso.
+- **Pico Espejo** no genera cola de ascenso.
+- las estaciones intermedias **no crecen artificialmente** por sí mismas.
+- las colas intermedias y superiores nacen principalmente cuando una cabina **descarga pasajeros reales** y luego esos pasajeros deciden continuar, quedarse o retornar.
+
+### 2) Misma semilla, corridas parecidas pero no clones exactos
+Se separó la lógica en:
+- **semilla base**: define el “día macro”
+- **semilla de variación operacional**: introduce pequeñas diferencias entre corridas del mismo día
+
+Con esto, dos simulaciones con la misma semilla conservan el mismo carácter general, pero no repiten exactamente el mismo log en cada ejecución.
+
+### 3) Eventualidades con memoria interna
+Ya no se fuerza que “algo grave” ocurra cada jornada. El motor acumula contexto en un **árbol causal** que considera:
+- clima previo
+- severidad de eventos pasados
+- presión del día
+- recencia de incidentes
+- categoría de la eventualidad
+
+Eso permite que una falla nueva no se evalúe aislada, sino en función de lo que el sistema ya venía sufriendo.
+
+### 4) Simulacro instantáneo real
+La interfaz ahora tiene dos caminos:
+- **Simulacro instantáneo**: reconstruye una jornada desde cero y la completa al instante.
+- **Finalizar y exportar**: toma la corrida actual, la acelera hasta el cierre y exporta el resultado.
+
+Ambos generan:
+- **PDF estructurado**
+- **JSON técnico**
 
 ---
 
@@ -52,7 +100,10 @@ HighRisk-Simulator/
 |   |-- Architecture.md
 |   |-- DataStructuresJustification.md
 |   |-- ManualDeUso.md
-|   `-- Roadmap.md
+|   |-- Roadmap.md
+|   |-- SimulationRealism.md
+|   `-- Privado/
+|       `-- IntegracionSQLite.md
 |-- HighRiskSimulator.Core/
 |   |-- Domain/
 |   |-- DataStructures/
@@ -70,70 +121,76 @@ HighRisk-Simulator/
     `-- Simulation/
 ```
 
-### Proyectos
-
-#### `HighRiskSimulator.Core`
-Contiene el corazón del sistema:
-- dominio
-- motor de simulación
-- estructuras de datos manuales
-- escenarios
-- contratos de persistencia futura
-
-#### `HighRiskSimulator`
-Aplicación WPF:
-- ViewModels
-- vistas
-- renderizado 1D en `Canvas`
-- telemetría con ScottPlot
-
-#### `HighRiskSimulator.Tests`
-Pruebas unitarias para:
-- lista circular
-- grafo de estaciones
-- comportamiento base del motor
-
 ---
 
-## Decisiones técnicas importantes
+## Estructuras y decisiones académicas principales
 
-### 1) Motor determinista por ticks
-Se eligió una simulación de **paso fijo** porque es la mejor base para:
-- reproducibilidad por semilla
-- depuración seria
-- pruebas unitarias
-- futura migración a render 2D
-- desacople entre tiempo visual y tiempo lógico
+### Lista circular doblemente enlazada
+Se usa porque la operación de cabinas por tramo es cíclica. La estructura expresa mejor la relación **siguiente / anterior** que una lista lineal o un arreglo convencional.
 
-### 2) Lista circular propia
-Se implementó una **lista circular doblemente enlazada manual** porque el problema tiene naturaleza cíclica: las cabinas repiten indefinidamente un circuito operativo y se necesita poder razonar sobre el siguiente y el anterior elemento sin lógica manual de wrap-around.
+### Grafo dirigido
+Se usa porque el sistema es una red de estaciones y tramos, no solo una lista de nombres. Aunque Mukumbarí hoy sea lineal, el modelo queda listo para rutas futuras, análisis de conectividad y crecimiento del simulador.
 
-### 3) Grafo de estaciones
-Aunque hoy el escenario principal sigue una secuencia casi lineal, se eligió un **grafo** porque el proyecto crecerá por semanas y eventualmente puede requerir:
-- ramificaciones
-- rutas alternativas
-- mantenimiento por segmentos
-- análisis de conectividad
-- caminos mínimos
-- futuros modos de rescate o evacuación
+### Heap manual
+Se usa para manejar acciones futuras con prioridad:
+- incidentes guionizados
+- retornos diferidos de pasajeros
+- transferencias internas
+- reacciones encadenadas
 
-### 4) Persistencia desacoplada
-SQLite quedó **preparado pero no acoplado**. El motor no depende de infraestructura, y la futura persistencia podrá conectarse a través de `ISimulationSnapshotRepository`.
+Un heap es mejor que una lista ordenada porque evita reordenar todo el conjunto en cada inserción.
+
+### Pila enlazada manual
+Se usa para mantener el historial reciente de eventos con acceso **LIFO**, ideal para UI, trazabilidad rápida y justificación de los últimos estados críticos.
+
+### Árbol causal interno
+Se eligió árbol porque permite representar relaciones de dependencia entre eventualidades. No se usa como visual público, sino como estructura interna para que el sistema recuerde el contexto de lo ya ocurrido antes de calcular la siguiente desviación.
 
 ---
 
 ## Escenario base actual
 
-El sistema base está inspirado en el teleférico Mukumbarí y modela estas estaciones:
-- Barinitas
-- La Montaña
-- La Aguada
-- Loma Redonda
-- Pico Espejo
+El escenario principal toma como referencia el teleférico Mukumbarí:
+- **5 estaciones**
+- **4 tramos**
+- recorrido total cercano a **12.5 km**
+- configuración base de **1 cabina por sentido por tramo**
 
-Se usan altitudes y un recorrido total aproximado de ~12.5 km para conseguir una simulación pedagógica consistente. En esta fase se modela **una cabina por tramo**, decisión que además aproxima el comportamiento operativo descrito para el sistema real, donde cada tramo funciona de forma independiente.
+Además, el simulador permite elevar la densidad de cabinas por sentido para validaciones académicas de separación segura y presión operacional, sin perder la configuración realista base como punto de referencia.
 
-> Importante: esta versión no pretende ser todavía un gemelo digital exacto del sistema real. Es una **base académica sólida y extensible** para evolucionar hacia una simulación más profunda.
+---
+
+## Qué muestra la interfaz
+
+### Encabezado
+- estado operacional
+- tiempo simulado
+- clima actual
+- pasajeros procesados
+- ocupación media
+- incidentes activos
+- barra de riesgo agregado
+
+### Panel de control
+- modo de simulación
+- escenario guionizado
+- semilla base
+- fecha simulada
+- modo de presión
+- velocidad 1x / 2x / 3x
+- cabinas por sentido
+
+### Inyección de fallas
+- falla mecánica
+- falla eléctrica
+- sobrecarga
+- tormenta
+- parada de emergencia
+
+### Pestañas
+- **Operación**: perfil 1D y telemetría ScottPlot
+- **Eventos y reportes**: línea de eventos y trazabilidad de exportación
+- **Cabinas y estaciones**: tablas operativas del estado actual
 
 ---
 
@@ -141,8 +198,7 @@ Se usan altitudes y un recorrido total aproximado de ~12.5 km para conseguir una
 
 ### Requisitos
 - **.NET 8 SDK**
-- **Visual Studio 2026** recomendado
-- Workload **.NET desktop development**
+- Visual Studio con workload **.NET desktop development**
 
 ### Pasos
 1. Abrir `HighRiskSimulator.sln`.
@@ -151,7 +207,7 @@ Se usan altitudes y un recorrido total aproximado de ~12.5 km para conseguir una
 4. Ejecutar con `F5`.
 
 ### Pruebas
-Desde terminal en la raíz de la solución:
+Desde la raíz de la solución:
 
 ```bash
 dotnet test
@@ -159,129 +215,38 @@ dotnet test
 
 ---
 
-## Qué probar primero
+## Dependencias relevantes
 
-### Modo aleatorio inteligente
-- Ejecuta la simulación con la semilla por defecto.
-- Observa cómo cambian demanda, clima, riesgo y eventos.
-- Reinicia con la misma semilla para verificar reproducibilidad.
+### En uso ahora
+- `ScottPlot.WPF` para telemetría en tiempo real.
+- `QuestPDF` para exportación estructurada de reportes.
+- `xUnit` y `Microsoft.NET.Test.Sdk` para pruebas.
 
-### Escenarios específicos
-- `Sobrecarga en temporada alta`
-- `Falla eléctrica general`
-- `Tormenta andina en cotas altas`
-
-### Interfaz
-- Revisa el perfil altimétrico 1D.
-- Observa los colores de las cabinas según estado.
-- Mira la evolución del riesgo, ocupación media y presión climática en ScottPlot.
-- Verifica el log de eventos y el cambio de estado operacional.
+### Preparadas para después
+- SQLite a través de `ISimulationSnapshotRepository` e `ISimulationRunRepository`.
 
 ---
 
 ## Documentación incluida
 
-- `Docs/Architecture.md` - explicación técnica de la arquitectura.
-- `Docs/DataStructuresJustification.md` - justificación formal de lista circular y grafo.
-- `Docs/ManualDeUso.md` - guía de uso y validación manual.
-- `Docs/Roadmap.md` - próximos pasos sugeridos del proyecto.
+- `Docs/Architecture.md` - arquitectura y flujo técnico del sistema.
+- `Docs/DataStructuresJustification.md` - justificación formal de estructuras manuales.
+- `Docs/ManualDeUso.md` - guía de uso de la UI y de los reportes.
+- `Docs/Roadmap.md` - siguientes fases sugeridas del proyecto.
+- `Docs/SimulationRealism.md` - explicación de realismo operativo, colas, temporada y árbol causal.
+- `Docs/RevisionEstabilidadUI.md` - notas de corrección sobre estabilidad, exportación y bindings de la interfaz.
+- `Docs/Privado/IntegracionSQLite.md` - guía privada para tu equipo, no pensada para entrega académica.
 
 ---
 
-## Dependencias relevantes
+## Nota importante sobre la fase actual
 
-### En uso ahora
-- `ScottPlot.WPF` para telemetría visual.
-- `xUnit` y `Microsoft.NET.Test.Sdk` para pruebas.
+Esta versión deja una base mucho más sólida y más realista, pero sigue siendo un simulador académico. Aún no pretende reemplazar un modelo físico industrial completo del sistema real. La prioridad fue dejar:
 
-### Preparadas para después
-- SQLite a través de una implementación futura de `ISimulationSnapshotRepository`.
+- coherencia operacional
+- crecimiento técnico correcto
+- estructuras justificables
+- interfaz usable
+- reportes útiles
 
----
-
-## Notas de diseño
-
-- El código está en **inglés** para mantener convención profesional.
-- Los **comentarios y documentación** están en **español** para facilitar defensa académica.
-- La UI consume **snapshots inmutables** del motor; esto simplifica pruebas, renderizado y futura evolución a un sandbox 2D.
-- La estructura actual ya separa con claridad **dominio**, **motor**, **infraestructura futura** y **presentación**.
-
----
-
-## README original del starter (preservado)
-
-# HighRisk Simulator - Starter
-
-Proyecto base de **C# + WPF** para iniciar el simulador de análisis de riesgo de teleféricos.
-
-## Qué incluye este paquete
-
-- Solución de Visual Studio 2026 (`HighRiskSimulator.sln`)
-- Proyecto WPF con **.NET 8**
-- Estructura principal de carpetas
-- Clases base del dominio del problema
-- `MainViewModel` con una simulación inicial funcional
-- Servicio de base de datos con **SQLite**
-- `README.md`
-- `.gitignore` para no subir archivos innecesarios a GitHub
-
-## Estructura del proyecto
-
-```text
-HighRiskSimulatorStarter/
-|-- HighRiskSimulator.sln
-|-- .gitignore
-|-- README.md
-`-- HighRiskSimulator/
-    |-- App.xaml
-    |-- App.xaml.cs
-    |-- HighRiskSimulator.csproj
-    |-- Models/
-    |-- ViewModels/
-    |-- Views/
-    |-- Services/
-    `-- Helpers/
-```
-
-## Requisitos
-
-- **Visual Studio 2022/2026**
-- Workload **.NET desktop development**
-- SDK de **.NET 8** instalado
-
-## Clases principales incluidas
-
-### Models
-- `Cabina`
-- `Estacion`
-- `TelefericoSistema`
-- `EventoRiesgo`
-- `ResultadoSimulacion`
-- `EstadoCabina`
-- `TipoEventoRiesgo`
-
-### ViewModels
-- `BaseViewModel`
-- `MainViewModel`
-
-### Services
-- `SimulacionService`
-- `DatabaseService`
-
-### Helpers
-- `RelayCommand`
-
-## Qué hace la versión inicial
-
-- Crea un sistema de teleférico simple en 1D.
-- Genera una simulación básica con eventos de sobrecarga y fallas aleatorias.
-- Muestra el resumen en la interfaz.
-- Guarda cada resultado en una base SQLite (`highrisk.db`).
-
-## Paquetes usados
-
-- `Microsoft.Data.Sqlite` para persistencia con SQLite.
-
-## Nota
-
-Este starter está pensado como una **base académica limpia y extensible**. No intenta resolver todo el simulador desde el inicio; solo dejar una estructura correcta para empezar a construirlo bien.
+para que las siguientes fases puedan enfocarse en 2D, texturas, terreno, partículas, replay histórico y persistencia real sin rehacer el núcleo.

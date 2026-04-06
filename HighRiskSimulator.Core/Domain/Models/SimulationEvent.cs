@@ -1,4 +1,5 @@
 using System;
+using HighRiskSimulator.Core.Domain;
 
 namespace HighRiskSimulator.Core.Domain.Models;
 
@@ -62,8 +63,32 @@ public sealed class SimulationEvent
 
     public bool RequiresEmergencyStop { get; }
 
+    public string SeverityDisplay => Severity.ToDisplayText();
+
+    public string TypeDisplay => Type.ToDisplayText();
+
+    public string OccurredAtDisplay => OccurredAt.ToString(@"hh\:mm\:ss");
+
+    public string LocationDisplay
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(StationName))
+            {
+                return StationName!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(SegmentName))
+            {
+                return SegmentName!;
+            }
+
+            return "Sistema";
+        }
+    }
+
     public override string ToString()
     {
-        return $"[{OccurredAt:mm\\:ss}] {Severity} - {Title}";
+        return $"[{OccurredAtDisplay}] {SeverityDisplay} - {Title}";
     }
 }

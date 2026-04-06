@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HighRiskSimulator.Core.Domain;
@@ -8,7 +9,7 @@ using HighRiskSimulator.Core.Simulation;
 namespace HighRiskSimulator.Services;
 
 /// <summary>
-/// Servicio UI que encapsula la creación de sesiones de simulación.
+/// Servicio de aplicación que encapsula la creación de sesiones de simulación.
 /// </summary>
 public sealed class SimulationSessionService
 {
@@ -17,29 +18,41 @@ public sealed class SimulationSessionService
         return MukumbariScenarioFactory.CreateScenarioCatalog();
     }
 
-    public SimulationEngine CreateEngine(string modeId, string scenarioId, int randomSeed)
+    public SimulationEngine CreateEngine(SimulationSessionRequest request)
     {
-        var mode = modeId == "scripted"
+        ArgumentNullException.ThrowIfNull(request);
+
+        var mode = request.ModeId == "scripted"
             ? SimulationMode.ScriptedScenario
             : SimulationMode.IntelligentRandom;
 
+        var effectiveScenarioId = mode == SimulationMode.ScriptedScenario
+            ? request.ScenarioId
+            : ScenarioDefinition.NoScenarioId;
+
+        var operationalVarianceSeed = CreateOperationalVarianceSeed(request.RandomSeed, request.SimulationDate);
+        var incidentMultiplier = request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 1.18 : 1.0;
+        var telemetryCapacity = request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 960 : 720;
+
         var options = new SimulationOptions
         {
-            RandomSeed = randomSeed,
+            RandomSeed = request.RandomSeed,
+            OperationalVarianceSeed = operationalVarianceSeed,
+            SimulationDate = request.SimulationDate.Date,
+            PressureMode = request.PressureMode,
+            CabinsPerDirectionPerSegment = Math.Max(1, request.CabinsPerDirectionPerSegment),
             Mode = mode,
-            ScenarioId = scenarioId,
+            ScenarioId = effectiveScenarioId,
             EnableRandomDemand = true,
             EnableWeatherSystem = true,
             EnableSafetyEscalation = true,
-            RandomIncidentMultiplier = 1.0,
+            RandomIncidentMultiplier = incidentMultiplier,
             DemandMultiplier = 1.0,
-            FixedTimeStep = System.TimeSpan.FromMilliseconds(100),
-            TelemetryCapacity = 320
+            FixedTimeStep = TimeSpan.FromMilliseconds(250),
+            ServiceStartTime = new TimeSpan(9, 0, 0),
+            ServiceDuration = TimeSpan.FromHours(request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 11 : 10),
+            TelemetryCapacity = telemetryCapacity
         };
-
-        var effectiveScenarioId = mode == SimulationMode.ScriptedScenario
-            ? scenarioId
-            : ScenarioDefinition.NoScenarioId;
 
         return MukumbariScenarioFactory.CreateEngine(options, effectiveScenarioId, NullSimulationSnapshotRepository.Instance);
     }
@@ -48,12 +61,25 @@ public sealed class SimulationSessionService
     {
         if (modeId != "scripted")
         {
-            return "Modo aleatorio inteligente: el sistema usa una semilla reproducible para combinar demanda, clima, fallas y reglas de seguridad sin guion fijo.";
+            return "Modo aleatorio inteligente: combina demanda turística, clima, transferencias reales, árbol causal interno y fallas no forzadas por jornada.";
         }
 
         return GetScriptedScenarios()
             .FirstOrDefault(item => item.Id == scenarioId)
             ?.Description
             ?? "Escenario no encontrado.";
+    }
+
+    private static int CreateOperationalVarianceSeed(int baseSeed, DateTime simulationDate)
+    {
+        var rollingEntropy = HashCode.Combine(
+            baseSeed,
+            simulationDate.Year,
+            simulationDate.Month,
+            simulationDate.Day,
+            Environment.TickCount,
+            DateTime.UtcNow.Ticks);
+
+        return rollingEntropy == 0 ? 1 : rollingEntropy;
     }
 }

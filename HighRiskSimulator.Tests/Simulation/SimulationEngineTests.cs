@@ -47,7 +47,7 @@ public sealed class SimulationEngineTests
     }
 
     [Fact]
-    public void ScriptedScenario_InjectsScheduledEvents()
+    public void ScriptedScenario_InjectsScheduledEventsIntoTimeline()
     {
         var engine = MukumbariScenarioFactory.CreateEngine(new SimulationOptions
         {
@@ -55,14 +55,10 @@ public sealed class SimulationEngineTests
             ScenarioId = "electrical-blackout"
         });
 
-        SimulationSnapshot? latest = null;
+        engine.RunToEndOfService();
+        var report = engine.CreateRunReport();
 
-        for (var index = 0; index < 200; index++)
-        {
-            latest = engine.Step();
-        }
-
-        Assert.NotNull(latest);
-        Assert.Contains(latest!.RecentEvents, item => item.Type == SimulationEventType.ElectricalFailure);
+        Assert.Contains(report.Timeline, item => item.Type == SimulationEventType.ElectricalFailure);
+        Assert.Contains(report.Timeline, item => item.Type == SimulationEventType.EmergencyBrake);
     }
 }

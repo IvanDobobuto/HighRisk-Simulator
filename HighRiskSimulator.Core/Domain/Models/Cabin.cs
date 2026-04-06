@@ -1,4 +1,5 @@
 using System;
+using HighRiskSimulator.Core.Domain;
 
 namespace HighRiskSimulator.Core.Domain.Models;
 
@@ -47,6 +48,7 @@ public sealed class Cabin
         SegmentPositionMeters = initialSegmentPositionMeters;
         DefaultStationDwellTime = defaultStationDwellTime;
         OperationalState = CabinOperationalState.IdleAtStation;
+        AlertLevel = CabinAlertLevel.Normal;
         MechanicalHealth = 1.0;
         ElectricalHealth = 1.0;
         BrakeHealth = 1.0;
@@ -64,6 +66,8 @@ public sealed class Cabin
     public TravelDirection Direction { get; private set; }
 
     public CabinOperationalState OperationalState { get; private set; }
+
+    public CabinAlertLevel AlertLevel { get; private set; }
 
     public double SegmentPositionMeters { get; private set; }
 
@@ -112,6 +116,11 @@ public sealed class Cabin
         return Direction == TravelDirection.Ascending
             ? SegmentPositionMeters
             : segmentLengthMeters + (segmentLengthMeters - SegmentPositionMeters);
+    }
+
+    public void SetAlertLevel(CabinAlertLevel level)
+    {
+        AlertLevel = level;
     }
 
     public void SetPassengers(int passengers)
@@ -306,6 +315,7 @@ public sealed class Cabin
         clone.ElectricalHealth = ElectricalHealth;
         clone.BrakeHealth = BrakeHealth;
         clone.OperationalState = OperationalState;
+        clone.AlertLevel = AlertLevel;
         clone.VelocityMetersPerSecond = VelocityMetersPerSecond;
         clone.AccelerationMetersPerSecondSquared = AccelerationMetersPerSecondSquared;
         clone.RemainingDwellTime = RemainingDwellTime;

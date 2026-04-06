@@ -2,135 +2,118 @@
 
 ## Objetivo general
 
-Evolucionar desde una base profesional 1D hacia un simulador visual 2D con más realismo operativo, mejor analítica y capacidad de reproducir escenarios históricos o configurados.
+Continuar la evolución del simulador desde una base estadística-operativa robusta hacia una plataforma visual 2D, persistente y analítica, sin comprometer la coherencia del núcleo actual.
 
 ---
 
 ## Fase siguiente inmediata
 
-### 1. Configuración avanzada desde la interfaz
-Agregar paneles para modificar:
-- capacidad de cabinas
-- velocidad máxima
-- aceleraciones
-- tiempos de parada
-- severidad del clima
-- presión de incidentes
-- demanda
+### 1. Persistencia SQLite real
+Implementar una infraestructura concreta que cumpla:
+- `ISimulationSnapshotRepository`
+- `ISimulationRunRepository`
 
-### 2. Persistencia real con SQLite
-Implementar una clase concreta que cumpla `ISimulationSnapshotRepository` y permita:
-- guardar snapshots
-- guardar eventos
-- guardar escenarios personalizados
-- reproducir ejecuciones históricas
+con soporte para:
+- historial de corridas
+- snapshots por jornada
+- reportes y eventos
+- filtros por fecha y escenario
 
-### 3. Mejorar pruebas automáticas
-Ampliar pruebas para:
-- separación segura
-- frenado de emergencia
-- cambio de clima
-- salida y retorno de servicio
-- escalamiento a accidente
+### 2. Reportes comparativos
+Agregar comparación entre corridas:
+- misma semilla base
+- distintas fechas
+- modos de presión distintos
+- temporadas distintas
+
+### 3. Más pruebas automáticas
+Extender cobertura para:
+- separación segura con múltiples cabinas
+- impacto del clima por tramo
+- transición entre estados Normal / Alerta / Crítico
+- validez de reportes exportados
+- fast-forward desde estado parcial
 
 ---
 
 ## Fase de consolidación del motor
 
-### 4. Multiplicidad de cabinas por tramo
-Permitir varias cabinas por segmento y reforzar:
-- lógica de despacho
-- separación mínima
-- control de vecinos
-- gestión de cola operacional
+### 4. Modelo origen-destino más rico
+Pasar del modelo actual de grupos agregados a un modelo más fino con:
+- grupos por origen-destino
+- perfiles de visita por estación
+- motivos de viaje
 
-### 5. Modelo de pasajeros más rico
-Pasar de conteo agregado a uno de estos modelos:
-- pasajeros por grupos
-- pasajeros por perfiles
-- pasajeros individuales
+### 5. Mantenimiento preventivo y correctivo
+Agregar:
+- calendario de mantenimiento
+- degradación acumulativa real por jornada
+- reparación y reincorporación con tiempos operativos
+- penalización por diferir mantenimiento
 
-### 6. Mantenimiento y degradación realista
+### 6. Protocolos operativos avanzados
 Incorporar:
-- mantenimiento preventivo
-- desgaste acumulativo
-- fallas dependientes de historial
-- probabilidad condicionada por salud del sistema
+- cierre parcial por tramo
+- evacuación y rescate
+- respuesta automática por severidad
+- restricciones por viento o hielo en altura
 
 ---
 
 ## Fase visual 2D
 
 ### 7. Sandbox 2D
-Crear una representación visual 2D donde se vean:
+Construir una escena visual con:
 - estaciones
-- cabinas
-- tramos
-- animaciones más detalladas
-- eventos visuales
-- capas de información encendibles/apagables
+- terreno simplificado
+- tramos y cables
+- cabinas animadas
+- partículas climáticas
+- capas conmutables de información
 
-### 8. Separar aún más lógica y render
-Crear una capa intermedia de escena para que el motor entregue datos listos para:
-- WPF 2D
-- exportación a video o imágenes
-- dashboards futuros
-
----
-
-## Fase de simulación avanzada
-
-### 9. Física más profunda
-A futuro se puede incorporar:
-- tensión del cable
-- carga dinámica
-- torque en sistemas motrices
-- sensibilidad al viento por tramo
-- respuesta ante frenado de emergencia severo
-
-### 10. Protocolos de emergencia
-Agregar:
-- rescate
-- evacuación
-- tiempos de respuesta
-- decisiones operativas automáticas
-- cierre parcial o total del sistema
+### 8. Soporte futuro para texturas y terreno
+Preparar una capa de escena para:
+- texturas básicas
+- relieve tipo sandbox
+- assets simples de estaciones y vagones
+- partículas de nieve, viento o tormenta
 
 ---
 
 ## Fase analítica e histórica
 
-### 11. Casos históricos y replay
-Con la base de datos integrada se podrá:
-- guardar simulaciones
-- reproducirlas desde cualquier punto
-- comparar escenarios
-- construir librería de incidentes
+### 9. Replay histórico
+Con base de datos integrada, permitir:
+- abrir una corrida pasada
+- reproducirla desde cualquier snapshot
+- comparar la línea temporal con otra corrida
 
-### 12. Métricas y reportes
+### 10. Dashboards y métricas agregadas
 Agregar:
-- reportes por jornada
-- histogramas de eventos
-- comparación de perfiles diarios
-- exportación de resultados
+- histogramas de incidentes
+- comparación por temporada
+- métricas por tramo
+- ocupación acumulada por estación
 
 ---
 
 ## Recomendación de orden
 
-Si el proyecto debe avanzar semana a semana, el orden recomendado es:
-
-1. persistencia SQLite desacoplada
-2. configuración avanzada en UI
-3. más pruebas automáticas
-4. múltiples cabinas por tramo
-5. mejora del modelo de pasajeros
-6. sandbox 2D
-7. física avanzada
-8. replay histórico y analítica completa
+1. SQLite real
+2. pruebas ampliadas
+3. reportes comparativos
+4. mantenimiento y protocolos
+5. sandbox 2D
+6. replay histórico
+7. texturas y terreno
 
 ---
 
 ## Criterio rector
 
-No conviene saltar directo al 2D si el núcleo aún no está consolidado. La base actual ya hizo el paso correcto: primero un motor serio, luego una visualización más ambiciosa.
+La fase correcta sigue siendo:
+1. consolidar núcleo y persistencia
+2. enriquecer modelo operativo
+3. expandir visualización
+
+Así el 2D será una consecuencia natural del motor, no un maquillaje encima de una lógica frágil.

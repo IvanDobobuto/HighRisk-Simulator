@@ -1,222 +1,293 @@
 # Justificación formal de estructuras de datos
 
-Este documento sirve para defender académicamente por qué se eligieron una **lista circular manual** para cabinas y un **grafo manual** para estaciones.
+## Objetivo de este documento
+
+Este documento explica por qué se eligieron determinadas estructuras manuales para el simulador y por qué son preferibles, en este contexto, a otras alternativas más simples o más genéricas.
+
+La idea no fue “usar estructuras avanzadas por usarlas”, sino elegir las que mejor representan el problema real.
 
 ---
 
-## 1. Lista circular doblemente enlazada para cabinas
+## 1. Lista circular doblemente enlazada
 
 ## Problema del dominio
 
-Una cabina de teleférico no es un elemento que "aparece y desaparece" una sola vez. Operativamente:
-- recorre un ciclo
-- llega a estación
-- se detiene
-- descarga/carga
-- invierte sentido
-- vuelve a recorrer el tramo
-- repite el proceso indefinidamente
+Las cabinas de un tramo siguen un comportamiento naturalmente cíclico:
+- salen de una estación
+- recorren el tramo
+- llegan a la estación opuesta
+- cambian de dirección
+- vuelven a repetir el ciclo
 
-Es decir, su comportamiento es **cíclico**.
+Eso no es una secuencia lineal simple. Es una operación circular.
 
 ---
 
 ## Estructura elegida
 
-Se implementó manualmente `CircularLinkedList<T>` y sobre ella una fachada de dominio llamada `CabinRing`.
-
-### ¿Por qué circular?
-Porque el problema ya es circular por naturaleza. En una lista circular:
-- el último nodo vuelve al primero
-- siempre existe siguiente y anterior lógico
-- no hay que programar manualmente el "si llegué al final, vuelve al principio"
-
-Eso reduce errores y expresa mejor el problema real.
-
-### ¿Por qué doblemente enlazada?
-Porque en un sistema operativo de cabinas interesa consultar:
-- la siguiente cabina
-- la cabina previa
-- el orden relativo de despacho
-- vecinos inmediatos para seguridad futura
-
-Una lista simplemente enlazada solo facilita avanzar hacia adelante. La doblemente enlazada da más flexibilidad con costo controlado.
+Se implementó manualmente:
+- `CircularLinkedList<T>`
+- `CabinRing`
 
 ---
 
-## ¿Por qué no usar `List<T>` o arreglo?
+## ¿Por qué no un `List<T>`?
 
-### Sí se puede usar, pero no es la mejor representación conceptual.
+Porque aunque una lista lineal sirve para almacenar elementos, no expresa bien la semántica de “siguiente cabina” y “cabina anterior” cuando el problema es cíclico.
 
-Con un arreglo o `List<T>` tendrías que resolver manualmente:
-- wrap-around del índice
-- siguiente del último elemento
-- anterior del primero
-- inserciones o eliminaciones intermedias si el sistema crece
+Con un `List<T>` normalmente hay que manejar índices y hacer wrap-around manual.
 
-Además, la semántica del problema queda menos clara: una lista indexada representa mejor secuencias estáticas que circuitos operativos cíclicos.
+Problemas:
+- más lógica accidental
+- más probabilidad de errores
+- la estructura no expresa bien el modelo del dominio
 
-### Comparación
-- `List<T>` es buena para acceso por índice.
-- la lista circular es mejor para **vecindad cíclica** y rotación lógica.
+La lista circular sí lo hace.
 
 ---
 
-## ¿Por qué no usar `Queue<T>`?
+## ¿Por qué doblemente enlazada y no solo enlazada?
 
-Porque una cola modela un flujo **FIFO** puro.
+Porque en la operación real es útil razonar tanto sobre la siguiente como sobre la anterior cabina del ciclo.
 
-El problema de las cabinas no es solamente "quién va primero". También interesa:
-- navegar al siguiente y anterior
-- rotar la cabeza del ciclo
-- mantener la idea de circuito continuo
-
-Una cola no representa bien ese comportamiento.
+Ventajas:
+- siguiente cabina: O(1)
+- cabina anterior: O(1)
+- inserciones y reordenamientos locales: O(1) con nodo conocido
 
 ---
 
-## ¿Por qué no usar `LinkedList<T>` del framework?
-
-Por requerimiento académico y por control técnico.
-
-La implementación propia permite:
-- demostrar comprensión real de la estructura
-- documentar exactamente por qué existe
-- agregar validación de propiedad del nodo (`Owner`)
-- adaptar la semántica a cabinas y despacho
-
-Esto es importante si el proyecto debe defenderse como construcción propia.
-
----
-
-## Ventajas concretas para este proyecto
-
-- expresa la naturaleza cíclica del sistema
-- simplifica navegación siguiente/anterior
-- deja una base clara para múltiples cabinas por tramo
-- reduce lógica manual de borde
-- es reusable fuera de la UI
-
----
-
-## Complejidad esperada
-
-### Lista circular doblemente enlazada
-- inserción local: O(1)
-- eliminación local con nodo conocido: O(1)
-- obtener siguiente/anterior: O(1)
-- búsqueda por valor: O(n)
-
-### Comentario importante
-El costo de búsqueda lineal es aceptable aquí porque el volumen esperado de cabinas por tramo es pequeño comparado con el beneficio semántico de la estructura.
-
----
-
-## 2. Grafo manual para estaciones
+## 2. Grafo dirigido para estaciones y tramos
 
 ## Problema del dominio
 
-Aunque el caso Mukumbarí actual es casi lineal, el proyecto no va a quedarse ahí. El sistema debe estar listo para:
-- múltiples estaciones
-- conexiones entre estaciones
-- caminos alternos
-- rutas de mantenimiento o simulación avanzada
-- consultas de conectividad
-- búsqueda de trayectos
+Aunque Mukumbarí siga una línea principal, conceptualmente el sistema es una red de nodos (estaciones) y aristas (tramos).
 
-Eso ya no es una lista simple: es una **red**.
+Se necesita poder:
+- consultar conexiones
+- buscar rutas
+- mantener un modelo extensible
+- representar crecimiento futuro
 
 ---
 
 ## Estructura elegida
 
-Se implementó `StationNetworkGraph` mediante:
+Se implementó `StationNetworkGraph` usando:
 - diccionario de estaciones
 - diccionario de segmentos
-- listas de adyacencia
+- listas de adyacencia salientes y entrantes
 
 ---
 
-## ¿Por qué un grafo y no una lista de estaciones?
+## ¿Por qué un grafo y no una lista simple?
 
-Una lista lineal solo funciona bien si el mundo siempre es estrictamente lineal.
+Porque una lista de estaciones solo sirve para un mundo estrictamente lineal.
 
-Problema:
-- no modela ramificaciones de forma natural
-- no resuelve caminos mínimos
-- no permite crecer sin rehacer el modelo
-
-El grafo sí lo hace.
-
----
-
-## ¿Por qué no un árbol?
-
-Un árbol obliga a una estructura jerárquica rígida.
-
-Eso no es ideal porque una red de teleférico futura podría incluir:
-- conexiones cruzadas
+Un grafo permite:
+- ramificaciones futuras
 - rutas alternativas
-- enlaces temporales o de mantenimiento
+- consultas de conectividad
+- caminos mínimos
 
-Un grafo es más general que un árbol y contiene al caso lineal como caso particular.
+Es una decisión de escalabilidad correcta.
 
 ---
 
-## ¿Por qué lista de adyacencia y no matriz de adyacencia?
+## ¿Por qué dirigido?
 
-Porque este problema es **disperso**.
+Porque la red física tiene sentido operacional por dirección:
+- una estación puede tener salidas y entradas distintas
+- los tramos pueden modelarse con reglas de recorrido explícitas
+- la noción de origen-destino queda mejor representada
 
-En redes de estaciones, cada estación suele conectarse con pocas vecinas, no con todas.
+Aunque un tramo del escenario actual admita recorrido inverso, el modelo sigue siendo más claro si la dirección forma parte de la estructura.
 
-### Matriz de adyacencia
-Ventaja:
-- consulta de conexión directa en O(1)
+---
 
-Desventajas:
-- memoria O(V^2)
-- poco natural si el sistema crece y sigue siendo disperso
-- menos cómoda para recorrer vecinos reales
+## 3. Heap mínimo manual
 
-### Lista de adyacencia
+## Problema del dominio
+
+El simulador necesita manejar acciones futuras con prioridad temporal:
+- incidentes guionizados
+- retornos diferidos de pasajeros
+- transferencias rápidas
+- reacciones encadenadas
+
+Cada acción tiene un momento y una prioridad.
+
+---
+
+## Estructura elegida
+
+Se implementó `BinaryMinHeap<T>`.
+
+---
+
+## ¿Por qué no una lista ordenada?
+
+Porque si cada vez que se inserta una acción futura hay que reordenar una lista completa, el costo y la lógica crecen innecesariamente.
+
+Con heap:
+- inserción: O(log n)
+- extracción del mínimo: O(log n)
+- inspección del próximo evento: O(1)
+
+Eso es mucho más adecuado para una cola de prioridad.
+
+---
+
+## ¿Por qué no `PriorityQueue<TElement, TPriority>` de .NET?
+
+Porque la defensa académica del proyecto exige estructuras manuales y porque una implementación propia permite justificar:
+- el mantenimiento del invariante de heap
+- heapify up
+- heapify down
+- relación directa con el problema
+
+---
+
+## 4. Pila enlazada manual
+
+## Problema del dominio
+
+El simulador necesita retener con facilidad el historial reciente de eventos para:
+- mostrar la narrativa más reciente
+- alimentar snapshots
+- preparar futura persistencia rápida
+
+Ese patrón es claramente LIFO en muchos casos de consulta rápida del “último evento relevante”.
+
+---
+
+## Estructura elegida
+
+Se implementó `LinkedStack<T>`.
+
+---
+
+## ¿Por qué no una lista o cola?
+
+Porque la semántica correcta no es FIFO sino LIFO. Interesa consultar primero lo más reciente.
+
 Ventajas:
-- memoria proporcional a estaciones + segmentos
-- muy buena para recorrer vecinos
-- muy buena para caminos mínimos en redes dispersas
-- más cercana a cómo pensamos el problema real
+- `Push`: O(1)
+- `Pop`: O(1)
+- `Peek`: O(1)
 
-Por eso es la mejor elección aquí.
-
----
-
-## Ventajas concretas para este proyecto
-
-- prepara el simulador para crecer sin rediseño radical
-- permite cálculo de caminos mínimos
-- representa mejor una red real que una lista rígida
-- soporta bien evolución futura del mapa operacional
+Además la implementación enlazada evita depender de redimensionamientos internos de arreglos.
 
 ---
 
-## Complejidad esperada
+## 5. Árbol causal interno
 
-### Grafo con lista de adyacencia
-- agregar estación: O(1)
-- agregar segmento: O(1)
-- obtener vecinos: O(grado del nodo)
-- camino mínimo actual con selección lineal: adecuado para red pequeña
+## Problema del dominio
 
-### Comentario importante
-Para el tamaño actual del proyecto, una implementación clara y mantenible es más valiosa que una sobre-optimización prematura.
+El usuario pidió que los acontecimientos no se evaluaran como hechos aislados, sino que una eventualidad nueva tuviera en cuenta lo ya ocurrido durante el día.
+
+Eso requiere una estructura que preserve relaciones y permita navegar contexto acumulado.
 
 ---
 
-## Conclusión de defensa
+## Estructura elegida
 
-### Lista circular
-Se usa porque modela mejor el comportamiento cíclico de las cabinas que una lista lineal, un arreglo o una cola.
+Se implementó `EventualityTree`.
 
-### Grafo
-Se usa porque modela mejor la red de estaciones y su crecimiento futuro que una lista, una matriz o un árbol rígido.
+El árbol guarda:
+- categoría del evento
+- severidad
+- presión
+- tiempo
+- etiquetas de contexto
 
-En otras palabras: no se eligieron estas estructuras por "verse avanzadas", sino porque **se ajustan mejor al problema real del simulador** y además dejan una base correcta para las siguientes fases del proyecto.
+Luego calcula una presión causal para posibles cascadas futuras.
+
+---
+
+## ¿Por qué un árbol y no solo una lista de eventos?
+
+Una lista solo conserva orden temporal. Un árbol permite organizar el contexto y ponderarlo por:
+- profundidad
+- recencia
+- severidad
+- cercanía temática
+
+Eso no convierte al simulador en “IA mágica”, pero sí le da una memoria estructurada del día mucho más útil que una lista plana.
+
+---
+
+## Conclusión general
+
+Las estructuras seleccionadas se justifican por dominio:
+
+- **lista circular**: ciclo operativo de cabinas
+- **grafo**: red de estaciones y tramos
+- **heap**: prioridad temporal de acciones e incidentes
+- **pila**: historial reciente LIFO
+- **árbol causal**: memoria estructurada de eventualidades
+
+Se eligieron porque describen mejor el problema real y porque dejan al proyecto listo para crecer sin romper su base conceptual.
+
+---
+
+## 6. Decisiones complementarias de infraestructura
+
+Aunque el núcleo académico del proyecto se resolvió con estructuras manuales, hubo dos necesidades que sí convenía cubrir con bibliotecas especializadas: la telemetría visual y la exportación documental. La decisión fue deliberada: no tiene sentido reimplementar desde cero una librería de gráficas o un motor PDF cuando eso no aporta valor académico directo al problema del teleférico.
+
+### ScottPlot para telemetría
+
+Se eligió **ScottPlot** porque encaja bien con WPF y permite:
+- series temporales en tiempo real
+- actualización frecuente con bajo esfuerzo de integración
+- control explícito del eje X para seguimiento automático de la ventana temporal
+
+#### ¿Por qué no dibujar la telemetría manualmente en un `Canvas`?
+Porque implicaría reimplementar:
+- ejes
+- escalado
+- rotulación
+- paneo
+- redibujado eficiente
+
+Eso aumentaría mucho el trabajo de interfaz sin mejorar el motor ni las estructuras de datos.
+
+#### ¿Por qué no usar una librería más pesada?
+Porque para esta fase solo se necesitaba:
+- series simples
+- lectura clara
+- integración rápida con WPF
+
+ScottPlot cubre eso con menos complejidad accidental.
+
+### QuestPDF para reportes
+
+Se eligió **QuestPDF** para generar el log final en PDF porque permite construir:
+- tablas estructuradas
+- encabezados y pies repetidos
+- secciones narrativas
+- documentos reproducibles desde código
+
+#### ¿Por qué no exportar solo texto plano?
+Porque el usuario pidió reportes formales con:
+- tablas
+- métricas
+- estadística consolidada
+- línea de tiempo entendible
+
+Un PDF estructurado responde mucho mejor a esa necesidad.
+
+#### ¿Por qué no depender de Word o de una exportación manual?
+Porque el reporte se genera automáticamente desde el estado del motor, sin depender de edición humana posterior. Eso vuelve el flujo repetible, trazable y defendible.
+
+### SQLite preparada pero no acoplada todavía
+
+Se dejó la arquitectura lista para SQLite, pero no se acopló la base de datos directamente al motor.
+
+#### ¿Por qué no conectarla ya dentro de `SimulationEngine`?
+Porque eso mezclaría:
+- simulación
+- persistencia
+- detalles de infraestructura
+
+La decisión correcta fue dejar interfaces (`ISimulationSnapshotRepository`, `ISimulationRunRepository`) y una guía privada de integración. Así el motor se mantiene limpio y la conexión futura puede hacerse sin reescribir el núcleo.
