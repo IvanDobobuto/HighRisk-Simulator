@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 using HighRiskSimulator.Core.Simulation;
@@ -7,7 +8,7 @@ namespace HighRiskSimulator.Core.Persistence;
 /// <summary>
 /// Contrato base para la futura persistencia histórica de jornadas.
 ///
-/// Esta interfaz no se usa aún desde la UI para no acoplar el motor a SQLite,
+/// Esta interfaz no se usa aún desde la UI para no acoplar el motor a MySQL,
 /// pero deja definido el punto de entrada correcto para la siguiente fase.
 /// </summary>
 public interface ISimulationRunRepository
@@ -44,7 +45,7 @@ public sealed class SimulationRunDescriptor
 }
 
 /// <summary>
-/// Implementación nula mientras la fase SQLite permanezca desacoplada.
+/// Implementación nula mientras la fase MySQL permanezca desacoplada.
 /// </summary>
 public sealed class NullSimulationRunRepository : ISimulationRunRepository
 {

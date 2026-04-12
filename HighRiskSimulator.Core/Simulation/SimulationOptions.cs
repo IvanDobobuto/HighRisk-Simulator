@@ -1,3 +1,4 @@
+
 using System;
 using HighRiskSimulator.Core.Domain;
 
@@ -43,4 +44,6 @@ public sealed class SimulationOptions
     public SimulationPressureMode PressureMode { get; set; } = SimulationPressureMode.Realistic;
 
     public int CabinsPerDirectionPerSegment { get; set; } = 1;
+
+    public SimulationRiskTuningProfile RiskTuning { get; set; } = new();
 }

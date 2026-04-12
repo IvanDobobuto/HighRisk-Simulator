@@ -1,20 +1,17 @@
 # Arquitectura actual del proyecto
 
-## Objetivo de la iteración
+## Objetivo de esta iteración
 
-Esta versión busca consolidar una base seria para el simulador del teleférico. Ya no se trata solo de “mover cabinas”, sino de representar una jornada con:
+La arquitectura de esta versión se concentró en tres metas simultáneas:
 
-- demanda turística variable
-- clima cambiante
-- múltiples cabinas
-- eventualidades condicionadas por contexto
-- exportación de reportes
-- base lista para persistencia futura
+- mejorar drásticamente la legibilidad de la interfaz
+- ampliar el control académico de riesgo sin romper el motor
+- dejar la persistencia futura en MySQL preparada desde contratos claros
 
-La idea arquitectónica central fue desacoplar al máximo:
+La decisión rectora fue mantener desacopladas tres responsabilidades:
 - el **núcleo de simulación**
-- la **UI WPF**
-- la **infraestructura futura**
+- la **presentación WPF**
+- la **infraestructura de persistencia futura**
 
 ---
 
@@ -31,7 +28,7 @@ Contiene:
 - snapshots inmutables consumidos por UI, pruebas y persistencia futura
 
 ### `DataStructures/`
-Contiene estructuras manuales obligatorias o justificadas por dominio:
+Contiene estructuras manuales justificadas por dominio:
 - `CircularLinkedList<T>`
 - `CabinRing`
 - `StationNetworkGraph`
@@ -45,9 +42,9 @@ Contiene el flujo del motor:
 - `SimulationModel`
 - `RollingMetricSeries`
 - `EventualityTree`
+- `SimulationRiskTuningProfile`
 - `SimulationEngine`
 - `SimulationRunReport`
-- calendario de estacionalidad venezolana
 
 ### `Factories/`
 `MukumbariScenarioFactory` construye:
@@ -55,14 +52,18 @@ Contiene el flujo del motor:
 - el perfil del día
 - la estacionalidad aplicada
 - las cabinas iniciales
-- las colas iniciales realistas
+- las colas iniciales
 - el catálogo de escenarios guionizados
 
 ### `Persistence/`
-Aquí se dejan los contratos desacoplados para persistencia:
+Aquí se dejaron los contratos desacoplados para persistencia:
 - `ISimulationSnapshotRepository`
 - `ISimulationRunRepository`
+- `SimulationDatabaseSettings`
+- `SimulationPersistenceEnvelope`
 - implementaciones nulas para esta fase
+
+La razón de este diseño es directa: el motor debe seguir produciendo snapshots y reportes aunque todavía no exista la conexión física a base de datos.
 
 ---
 
@@ -77,142 +78,133 @@ Presenta datos y ejecuta acciones del usuario.
 - corre simulacros instantáneos
 - acelera la corrida actual hasta el cierre
 - dispara exportación PDF/JSON
-- inyecta fallas manuales
-- transforma snapshots en colecciones observables
+- aplica calibración de riesgo en caliente
+- inyecta fallas manuales sin pausar
+- mantiene toasts y colecciones observables
 
 ### `Views/`
-`MainWindow.xaml` define una interfaz con:
-- scroll vertical/horizontal para equipos pequeños
-- panel de control y de inyección
-- pestañas de operación, eventos y tablas
-- canvas 1D del sistema
-- ScottPlot para telemetría
+`MainWindow` se rediseñó con una distribución tripartita:
+- panel lateral de operador
+- escena principal sandbox
+- bloque lateral analítico
 
-`MainWindow.xaml.cs` se usa solo para:
-- dibujo del perfil de ruta
-- representación visual de cabinas y estaciones
-- ajuste automático de la ventana de ScottPlot
+El code-behind quedó limitado a presentación:
+- dibujo del sandbox 2D
+- lectura visual de estados
+- actualización de ScottPlot
 
 ### `Services/`
-Contiene lógica de aplicación, no de dominio:
+Contiene servicios de aplicación que no deben contaminar el motor:
 - `SimulationSessionService`
 - `SimulationReportExportService`
-- request de sesión
+
+### `Models/` y `Helpers/`
+Agrupan modelos de apoyo a UI y utilidades de comandos.
 
 ---
 
-## Flujo principal del motor
+## 3. Capa de pruebas (`HighRiskSimulator.Tests`)
 
-Cada tick lógico sigue una secuencia clara:
+Mantiene verificación del comportamiento esencial del proyecto:
+- estructuras de datos
+- reglas base del motor
+- consistencia del dominio
 
-1. ajustar delta time efectivo según 1x/2x/3x
-2. actualizar red eléctrica si estaba degradada
-3. actualizar clima en función de estacionalidad y volatilidad
-4. crear demanda exógena principal en Barinitas
-5. procesar acciones pendientes desde el heap
-6. mover cabinas y resolver paradas en estación
-7. programar transferencias y retornos diferidos
-8. evaluar incidentes aleatorios no forzados
-9. recalcular riesgo y telemetría
-10. aplicar reglas de seguridad
-11. producir snapshot inmutable
-12. guardar snapshot mediante repositorio desacoplado
+La decisión de conservar pruebas en una capa separada evita que la UI condicione la validación del núcleo.
 
 ---
 
-## Justificación del delta time escalable
+## Decisiones arquitectónicas nuevas de esta iteración
 
-La velocidad visual de la simulación se desacopló del motor WPF mediante un factor 1x / 2x / 3x aplicado al paso lógico. Esto permite:
+## 1. Panel lateral colapsable
 
-- acelerar análisis sin reescribir física
-- mantener un motor consistente por ticks
-- permitir simulacro interactivo o corridas más rápidas
-- soportar el modo instantáneo sin depender del temporizador visual
+Se eligió `Expander` lateral en lugar de multiplicar paneles dispersos porque:
+- agrupa todo el control manual en un punto fijo
+- reduce ruido cognitivo en la escena central
+- se puede contraer sin destruir funcionalidad
+- conserva compatibilidad total con WPF nativo
 
----
-
-## Modelado de demanda y realismo operacional
-
-La demanda ya no aparece en todas las estaciones de forma arbitraria.
-
-### Ahora ocurre así
-- Barinitas recibe la demanda turística principal desde fuera del sistema.
-- estaciones intermedias crecen por **descarga real de cabinas**.
-- después de bajar, una parte de esos pasajeros:
-  - continúa la ruta
-  - permanece un tiempo y retorna
-  - simplemente sale del sistema
-- Pico Espejo solo genera retorno descendente.
-- Barinitas nunca genera cola de descenso.
-
-Esta decisión mueve el simulador hacia un comportamiento más cercano a una jornada real.
+Es mejor que un mosaico de controles distribuidos porque el usuario siempre sabe dónde intervenir.
 
 ---
 
-## Árbol causal interno
+## 2. Escena principal con `Canvas` lógico fijo y `ViewBox`
 
-El motor usa `EventualityTree` para registrar memoria del día. No es un árbol “decorativo”. Se usa para:
+Se eligió una resolución lógica fija escalada por `ViewBox` porque:
+- permite preservar proporciones en 800x600 y en resoluciones mayores
+- evita recalcular toda la composición visual para cada tamaño real de ventana
+- mantiene coordenadas de dibujo simples y deterministas
+- reduce errores de layout en escenas dinámicas
 
-- sembrar el contexto inicial del día
-- registrar clima relevante
-- registrar incidentes y severidad
-- calcular presión causal futura
-
-Con esto una posible falla futura puede volverse más o menos probable según lo ocurrido antes.
-
----
-
-## Heap y pila en el motor
-
-### Heap manual
-`BinaryMinHeap<T>` gestiona acciones con prioridad temporal:
-- incidentes de escenarios
-- decisiones diferidas de pasajeros
-- reacciones futuras del sistema
-
-### Pila manual
-`LinkedStack<T>` mantiene historial reciente de eventos para:
-- narrativa actual
-- UI de eventos recientes
-- snapshots
-- futura persistencia rápida
+Esta decisión es más estable que usar coordenadas dependientes del tamaño real de cada control y más óptima que introducir un motor externo cuando el problema central sigue siendo académico y operativo.
 
 ---
 
-## Exportación de reportes
+## 3. Toasts no bloqueantes
 
-La generación de reportes quedó fuera del motor. La UI solicita un `SimulationRunReport` y el servicio de exportación se encarga de producir:
+Se eligieron notificaciones tipo toast en lugar de diálogos modales porque:
+- confirman acciones del operador
+- no tapan la vista principal
+- no detienen el flujo de la simulación
+- reducen interrupciones innecesarias en pruebas intensivas
 
-- **PDF** con tablas y resumen ejecutivo
-- **JSON** como respaldo técnico completo
-
-Esto mantiene la responsabilidad bien separada:
-- el motor **simula**
-- el servicio **formatea y exporta**
-
----
-
-## Persistencia desacoplada
-
-SQLite no se integró todavía al flujo principal para no contaminar el núcleo con infraestructura. En su lugar se dejaron contratos listos para:
-
-- guardar snapshots
-- guardar metadatos de corrida
-- guardar reporte consolidado
-- consultar historial
-
-Eso facilita una implementación futura sin rediseñar el motor.
+Es la opción correcta para una consola operacional donde las acciones deben confirmarse sin secuestrar la atención.
 
 ---
 
-## Conclusión arquitectónica
+## 4. Perfil maestro de riesgo desacoplado
 
-La base actual deja al proyecto en un punto mucho más seguro para crecer. El sistema ya tiene:
+Se centralizó la calibración en `SimulationRiskTuningProfile` porque:
+- reduce duplicación de parámetros
+- hace serializable la configuración
+- deja lista la persistencia histórica de perfiles
+- evita que cada componente invente su propio criterio de ajuste
 
-- dominio claro
-- estructuras justificables
-- simulación desacoplada de la UI
-- exportación estructurada
-- espacio limpio para persistencia futura
+Esto es mejor que guardar sliders sueltos en la UI o multiplicadores dispersos en varios servicios.
 
-Con esta arquitectura, avanzar hacia 2D, replay histórico o SQLite real será una extensión, no una reconstrucción completa.
+---
+
+## 5. Inyección de fallas sin pausa
+
+La capacidad de intervenir en caliente se implementó directamente en el motor porque la corrida no debía depender de un estado intermedio de pausa para aceptar una contingencia.
+
+La decisión es mejor que forzar pausa previa porque:
+- conserva continuidad temporal
+- representa mejor una operación real
+- permite entrenamiento reactivo auténtico
+
+---
+
+## 6. Preparación explícita para MySQL
+
+No se integró aún la infraestructura física, pero sí se definió la frontera correcta:
+- settings de conexión
+- contrato de persistencia
+- envelope de corrida completa
+- documento privado de integración
+
+La razón es evitar una integración prematura y frágil dentro del motor. El núcleo produce información. La infraestructura futura la guarda.
+
+---
+
+## Flujo principal de la aplicación
+
+1. La UI construye `SimulationSessionRequest`.
+2. `SimulationSessionService` traduce la solicitud a `SimulationOptions`.
+3. `MukumbariScenarioFactory` crea modelo, escenario y motor.
+4. `SimulationEngine` produce snapshots y reportes.
+5. `MainViewModel` sincroniza el snapshot con la UI.
+6. `MainWindow.xaml.cs` representa visualmente la escena y la telemetría.
+7. `SimulationReportExportService` exporta PDF y JSON.
+8. La futura infraestructura MySQL podrá persistir el resultado sin modificar el motor.
+
+---
+
+## Criterio rector de la arquitectura
+
+La base actual prioriza:
+- **un motor determinista y explicable**
+- **una UI clara y estable**
+- **infraestructura persistente desacoplada**
+
+Con esta arquitectura, avanzar hacia replay histórico, base de datos MySQL real, dashboards comparativos o una escena visual todavía más rica será una extensión coherente, no una reconstrucción completa.

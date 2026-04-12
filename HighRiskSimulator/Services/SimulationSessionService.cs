@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,6 +34,8 @@ public sealed class SimulationSessionService
         var operationalVarianceSeed = CreateOperationalVarianceSeed(request.RandomSeed, request.SimulationDate);
         var incidentMultiplier = request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 1.18 : 1.0;
         var telemetryCapacity = request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 960 : 720;
+        var tuning = request.RiskTuning?.Clone() ?? new SimulationRiskTuningProfile();
+        tuning.Normalize();
 
         var options = new SimulationOptions
         {
@@ -51,7 +54,8 @@ public sealed class SimulationSessionService
             FixedTimeStep = TimeSpan.FromMilliseconds(250),
             ServiceStartTime = new TimeSpan(9, 0, 0),
             ServiceDuration = TimeSpan.FromHours(request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 11 : 10),
-            TelemetryCapacity = telemetryCapacity
+            TelemetryCapacity = telemetryCapacity,
+            RiskTuning = tuning
         };
 
         return MukumbariScenarioFactory.CreateEngine(options, effectiveScenarioId, NullSimulationSnapshotRepository.Instance);
@@ -61,7 +65,7 @@ public sealed class SimulationSessionService
     {
         if (modeId != "scripted")
         {
-            return "Modo aleatorio inteligente: combina demanda turística, clima, transferencias reales, árbol causal interno y fallas no forzadas por jornada.";
+            return "Modo aleatorio inteligente: combina demanda turística, clima, memoria causal, tunable risk panel y fallas no forzadas por jornada.";
         }
 
         return GetScriptedScenarios()

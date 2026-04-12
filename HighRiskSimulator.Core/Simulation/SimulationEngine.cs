@@ -12,11 +12,12 @@ namespace HighRiskSimulator.Core.Simulation;
 /// Motor principal del simulador.
 /// 
 /// Esta versión refuerza el realismo de la jornada con:
-/// - delta time escalable 1x/2x/3x;
+/// - delta time escalable 1x-50x;
 /// - colas realistas centradas en la estación base y en transferencias reales;
 /// - árbol causal interno para memoria contextual del día;
 /// - heap manual para acciones futuras y contingencias;
 /// - pila manual para historial reciente de eventos;
+/// - panel maestro de riesgo con sintonía fina de probabilidades;
 /// - métricas consolidadas para exportación de reportes.
 /// </summary>
 public sealed class SimulationEngine
@@ -127,7 +128,15 @@ public sealed class SimulationEngine
 
     public void SetTimeScale(double timeScale)
     {
-        _currentTimeScale = Math.Clamp(timeScale, 1.0, 3.0);
+        _currentTimeScale = Math.Clamp(timeScale, 1.0, 50.0);
+    }
+
+    public void ApplyRiskTuning(SimulationRiskTuningProfile tuning)
+    {
+        ArgumentNullException.ThrowIfNull(tuning);
+        _options.RiskTuning = tuning.Clone();
+        _options.RiskTuning.Normalize();
+        RefreshAfterManualIntervention("Se actualizó la calibración dinámica de probabilidades.");
     }
 
     /// <summary>
@@ -251,6 +260,100 @@ public sealed class SimulationEngine
         return CurrentSnapshot;
     }
 
+    public SimulationSnapshot InjectStrongWind()
+    {
+        ApplyWeatherCondition(WeatherCondition.Windy);
+        _eventualityTree.RegisterWeatherContext(_model.WeatherState, _elapsed);
+        EmitEvent(
+            SimulationEventType.ExtremeWeather,
+            EventSeverity.Warning,
+            "Viento fuerte inyectado",
+            "La interfaz activó una ráfaga intensa para validar estabilidad, separación y protocolos de desaceleración.",
+            11,
+            "Inyección manual");
+
+        RefreshAfterManualIntervention("Se forzó viento fuerte sobre la línea.");
+        return CurrentSnapshot;
+    }
+
+    public SimulationSnapshot InjectFog()
+    {
+        ApplyWeatherCondition(WeatherCondition.Fog);
+        _eventualityTree.RegisterWeatherContext(_model.WeatherState, _elapsed);
+        EmitEvent(
+            SimulationEventType.ExtremeWeather,
+            EventSeverity.Warning,
+            "Neblina densa inyectada",
+            "La interfaz degradó la visibilidad para comprobar lectura operacional y reacción del operador.",
+            9,
+            "Inyección manual");
+
+        RefreshAfterManualIntervention("Se forzó una capa de neblina densa.");
+        return CurrentSnapshot;
+    }
+
+    public SimulationSnapshot InjectPulleyWear(int cabinId)
+    {
+        var cabin = _model.GetCabin(cabinId);
+        var segment = _model.GetSegment(cabin.AssignedSegmentId);
+        cabin.ApplyMechanicalDamage(0.05 + (_microRandom.NextDouble() * 0.05), false, TimeSpan.Zero);
+        cabin.ApplyBrakeDamage(0.02 + (_microRandom.NextDouble() * 0.03));
+        EmitEvent(
+            SimulationEventType.MechanicalWear,
+            EventSeverity.Warning,
+            $"Desgaste acelerado en {cabin.Code}",
+            $"Se inyectó manualmente una condición de desgaste de poleas o rodadura sobre {cabin.Code} para validar diagnóstico temprano.",
+            8,
+            "Inyección manual",
+            cabin: cabin,
+            segment: segment);
+
+        RefreshAfterManualIntervention("Se inyectó desgaste mecánico puntual.");
+        return CurrentSnapshot;
+    }
+
+    public SimulationSnapshot InjectVoltageSpike(int? cabinId = null)
+    {
+        if (cabinId is null)
+        {
+            foreach (var cabin in _model.Cabins.Where(item => !item.IsOutOfService))
+            {
+                cabin.ApplyElectricalDamage(0.05 + (_microRandom.NextDouble() * 0.04), false, TimeSpan.Zero);
+                if (_microRandom.NextDouble() < 0.28)
+                {
+                    cabin.ActivateEmergencyBrake(TimeSpan.FromMinutes(1));
+                }
+            }
+
+            EmitEvent(
+                SimulationEventType.VoltageSpike,
+                EventSeverity.Warning,
+                "Pico de tensión general",
+                "Se provocó un transitorio eléctrico a escala de sistema para probar resiliencia de protección y recuperación.",
+                13,
+                "Inyección manual");
+        }
+        else
+        {
+            var cabin = _model.GetCabin(cabinId.Value);
+            var segment = _model.GetSegment(cabin.AssignedSegmentId);
+            cabin.ApplyElectricalDamage(0.14 + (_microRandom.NextDouble() * 0.10), false, TimeSpan.Zero);
+            cabin.ActivateEmergencyBrake(TimeSpan.FromMinutes(2));
+            EmitEvent(
+                SimulationEventType.VoltageSpike,
+                EventSeverity.Warning,
+                $"Pico de tensión en {cabin.Code}",
+                $"La cabina {cabin.Code} recibió una sobretensión controlada para validar telemetría y reacción del sistema.",
+                10,
+                "Inyección manual",
+                cabin: cabin,
+                segment: segment);
+        }
+
+        RefreshAfterManualIntervention("Se inyectó un pico de tensión.");
+        return CurrentSnapshot;
+    }
+
     public SimulationSnapshot InjectOverload(int cabinId)
     {
         var cabin = _model.GetCabin(cabinId);
@@ -299,6 +402,8 @@ public sealed class SimulationEngine
         var criticalEvents = _eventTimeline.Count(item => item.Severity == EventSeverity.Critical);
         var catastrophicEvents = _eventTimeline.Count(item => item.Severity == EventSeverity.Catastrophic);
 
+        var tuning = _options.RiskTuning ?? new SimulationRiskTuningProfile();
+
         return new SimulationRunReport
         {
             SystemName = _model.SystemName,
@@ -310,6 +415,7 @@ public sealed class SimulationEngine
             ExecutiveSummary = BuildExecutiveSummary(averageRisk, averageOccupancy),
             Conclusions = BuildConclusions(averageRisk),
             EventualityFingerprint = _eventualityTree.Fingerprint,
+            RiskCalibrationSummary = tuning.ToSummaryText(),
             SimulationDate = _model.SimulationDate,
             GeneratedAtUtc = DateTime.UtcNow,
             BaseSeed = _options.RandomSeed,
@@ -329,6 +435,14 @@ public sealed class SimulationEngine
             CriticalEvents = criticalEvents,
             CatastrophicEvents = catastrophicEvents,
             EndedByEmergencyStop = OperationalState == SystemOperationalState.EmergencyStop,
+            GlobalRiskMultiplier = tuning.GlobalRiskMultiplier,
+            StormProbabilityMultiplier = tuning.StormProbabilityMultiplier,
+            WindProbabilityMultiplier = tuning.WindProbabilityMultiplier,
+            FogProbabilityMultiplier = tuning.FogProbabilityMultiplier,
+            MechanicalWearProbabilityMultiplier = tuning.MechanicalWearProbabilityMultiplier,
+            CabinMechanicalFailureProbabilityMultiplier = tuning.CabinMechanicalFailureProbabilityMultiplier,
+            PowerOutageProbabilityMultiplier = tuning.PowerOutageProbabilityMultiplier,
+            VoltageSpikeProbabilityMultiplier = tuning.VoltageSpikeProbabilityMultiplier,
             Timeline = _eventTimeline.ToList(),
             Stations = BuildStationReportEntries(),
             Cabins = BuildCabinReportEntries(),
@@ -453,8 +567,10 @@ public sealed class SimulationEngine
             return;
         }
 
+        var tuning = _options.RiskTuning ?? new SimulationRiskTuningProfile();
         var baseIntervalSeconds = 45 - ((_model.SeasonalityProfile.WeatherVolatilityMultiplier - 1.0) * 12.0);
-        _nextWeatherUpdateAt = _elapsed + TimeSpan.FromSeconds(Math.Clamp(baseIntervalSeconds + (_microRandom.NextDouble() * 18.0), 20.0, 65.0));
+        var tunedInterval = baseIntervalSeconds / Math.Clamp(0.75 + ((tuning.GlobalRiskMultiplier - 1.0) * 0.18), 0.65, 1.35);
+        _nextWeatherUpdateAt = _elapsed + TimeSpan.FromSeconds(Math.Clamp(tunedInterval + (_microRandom.NextDouble() * 18.0), 18.0, 65.0));
 
         var currentCondition = _model.WeatherState.Condition;
         var nextCondition = ResolveNextCondition(currentCondition);
@@ -466,67 +582,142 @@ public sealed class SimulationEngine
             _lowestTemperatureCelsius,
             _model.Stations.Min(station => _model.WeatherState.EstimateTemperatureAtAltitude(station.AltitudeMeters)));
 
-        if (nextCondition != currentCondition || _model.WeatherState.IcingRiskIndex >= 0.40)
+        if (nextCondition != currentCondition || _model.WeatherState.IcingRiskIndex >= 0.40 || _model.WeatherState.VisibilityFactor <= 0.72)
         {
             _eventualityTree.RegisterWeatherContext(_model.WeatherState, _elapsed);
         }
 
-        if ((nextCondition == WeatherCondition.Snow || nextCondition == WeatherCondition.Storm) &&
-            TryAcquireCooldown($"weather-{nextCondition}", TimeSpan.FromMinutes(18)))
+        if (nextCondition == WeatherCondition.Storm && TryAcquireCooldown("weather-storm", TimeSpan.FromMinutes(18)))
         {
             EmitEvent(
                 SimulationEventType.ExtremeWeather,
-                nextCondition == WeatherCondition.Storm ? EventSeverity.Critical : EventSeverity.Warning,
-                nextCondition == WeatherCondition.Storm ? "Tormenta en altura" : "Nevada con riesgo de engelamiento",
-                nextCondition == WeatherCondition.Storm
-                    ? "Las condiciones de viento y visibilidad degradan de forma notable la operación de los tramos altos."
-                    : "La temperatura y la humedad elevan el riesgo de hielo y reducen la velocidad operativa.",
-                nextCondition == WeatherCondition.Storm ? 16 : 10,
+                EventSeverity.Critical,
+                "Tormenta en altura",
+                "Las condiciones de viento y visibilidad degradan de forma notable la operación de los tramos altos.",
+                16,
+                "Clima");
+        }
+        else if (nextCondition == WeatherCondition.Snow && TryAcquireCooldown("weather-snow", TimeSpan.FromMinutes(18)))
+        {
+            EmitEvent(
+                SimulationEventType.ExtremeWeather,
+                EventSeverity.Warning,
+                "Nevada con riesgo de engelamiento",
+                "La temperatura y la humedad elevan el riesgo de hielo y reducen la velocidad operativa.",
+                10,
+                "Clima");
+        }
+        else if (nextCondition == WeatherCondition.Windy && TryAcquireCooldown("weather-windy", TimeSpan.FromMinutes(16)))
+        {
+            EmitEvent(
+                SimulationEventType.ExtremeWeather,
+                EventSeverity.Warning,
+                "Vientos fuertes de ladera",
+                "Las ráfagas exigen mayor margen de separación, lectura de balanceo y control de velocidad.",
+                8,
+                "Clima");
+        }
+        else if (nextCondition == WeatherCondition.Fog && TryAcquireCooldown("weather-fog", TimeSpan.FromMinutes(16)))
+        {
+            EmitEvent(
+                SimulationEventType.ExtremeWeather,
+                EventSeverity.Warning,
+                "Neblina densa",
+                "La reducción de visibilidad exige operación conservadora, vigilancia continua y confirmación redundante de estado.",
+                7,
                 "Clima");
         }
     }
 
     private WeatherCondition ResolveNextCondition(WeatherCondition currentCondition)
     {
+        var tuning = _options.RiskTuning ?? new SimulationRiskTuningProfile();
         var volatility = _model.DayProfile.WeatherVolatility * _model.SeasonalityProfile.WeatherVolatilityMultiplier;
-        var transitionChance = 0.14 * volatility;
+        var transitionChance = Math.Clamp(0.14 * volatility * Math.Max(0.78, tuning.GlobalRiskMultiplier), 0.06, 0.44);
 
         if (_microRandom.NextDouble() >= transitionChance)
         {
             return currentCondition;
         }
 
-        var roll = _microRandom.NextDouble();
-
         return currentCondition switch
         {
-            WeatherCondition.Clear => roll < 0.58 ? WeatherCondition.Cold
-                : roll < 0.84 ? WeatherCondition.Windy
-                : roll < 0.95 ? WeatherCondition.Snow
-                : WeatherCondition.Storm,
+            WeatherCondition.Clear => SelectWeightedWeather(
+                (WeatherCondition.Clear, 0.18),
+                (WeatherCondition.Cold, 0.30),
+                (WeatherCondition.Windy, 0.18 * tuning.WindProbabilityMultiplier),
+                (WeatherCondition.Fog, 0.16 * tuning.FogProbabilityMultiplier),
+                (WeatherCondition.Snow, 0.10),
+                (WeatherCondition.Storm, 0.08 * tuning.StormProbabilityMultiplier)),
 
-            WeatherCondition.Cold => roll < 0.34 ? WeatherCondition.Clear
-                : roll < 0.66 ? WeatherCondition.Windy
-                : roll < 0.90 ? WeatherCondition.Snow
-                : WeatherCondition.Storm,
+            WeatherCondition.Cold => SelectWeightedWeather(
+                (WeatherCondition.Clear, 0.20),
+                (WeatherCondition.Cold, 0.18),
+                (WeatherCondition.Windy, 0.20 * tuning.WindProbabilityMultiplier),
+                (WeatherCondition.Fog, 0.14 * tuning.FogProbabilityMultiplier),
+                (WeatherCondition.Snow, 0.16),
+                (WeatherCondition.Storm, 0.12 * tuning.StormProbabilityMultiplier)),
 
-            WeatherCondition.Windy => roll < 0.24 ? WeatherCondition.Clear
-                : roll < 0.48 ? WeatherCondition.Cold
-                : roll < 0.81 ? WeatherCondition.Snow
-                : WeatherCondition.Storm,
+            WeatherCondition.Windy => SelectWeightedWeather(
+                (WeatherCondition.Clear, 0.16),
+                (WeatherCondition.Cold, 0.18),
+                (WeatherCondition.Windy, 0.18 * tuning.WindProbabilityMultiplier),
+                (WeatherCondition.Fog, 0.10 * tuning.FogProbabilityMultiplier),
+                (WeatherCondition.Snow, 0.16),
+                (WeatherCondition.Storm, 0.22 * tuning.StormProbabilityMultiplier)),
 
-            WeatherCondition.Snow => roll < 0.18 ? WeatherCondition.Cold
-                : roll < 0.42 ? WeatherCondition.Windy
-                : roll < 0.72 ? WeatherCondition.Snow
-                : WeatherCondition.Storm,
+            WeatherCondition.Fog => SelectWeightedWeather(
+                (WeatherCondition.Clear, 0.16),
+                (WeatherCondition.Cold, 0.18),
+                (WeatherCondition.Windy, 0.18 * tuning.WindProbabilityMultiplier),
+                (WeatherCondition.Fog, 0.20 * tuning.FogProbabilityMultiplier),
+                (WeatherCondition.Snow, 0.12),
+                (WeatherCondition.Storm, 0.16 * tuning.StormProbabilityMultiplier)),
 
-            WeatherCondition.Storm => roll < 0.28 ? WeatherCondition.Windy
-                : roll < 0.52 ? WeatherCondition.Snow
-                : roll < 0.75 ? WeatherCondition.Cold
-                : WeatherCondition.Storm,
+            WeatherCondition.Snow => SelectWeightedWeather(
+                (WeatherCondition.Cold, 0.22),
+                (WeatherCondition.Windy, 0.18 * tuning.WindProbabilityMultiplier),
+                (WeatherCondition.Fog, 0.08 * tuning.FogProbabilityMultiplier),
+                (WeatherCondition.Snow, 0.24),
+                (WeatherCondition.Storm, 0.18 * tuning.StormProbabilityMultiplier)),
+
+            WeatherCondition.Storm => SelectWeightedWeather(
+                (WeatherCondition.Windy, 0.24 * tuning.WindProbabilityMultiplier),
+                (WeatherCondition.Fog, 0.14 * tuning.FogProbabilityMultiplier),
+                (WeatherCondition.Cold, 0.20),
+                (WeatherCondition.Snow, 0.18),
+                (WeatherCondition.Storm, 0.16 * tuning.StormProbabilityMultiplier)),
 
             _ => currentCondition,
         };
+    }
+
+    private WeatherCondition SelectWeightedWeather(params (WeatherCondition Condition, double Weight)[] candidates)
+    {
+        if (candidates.Length == 0)
+        {
+            return _model.WeatherState.Condition;
+        }
+
+        var totalWeight = candidates.Sum(candidate => Math.Max(0.0, candidate.Weight));
+        if (totalWeight <= 0)
+        {
+            return candidates[0].Condition;
+        }
+
+        var roll = _microRandom.NextDouble() * totalWeight;
+        var cumulative = 0.0;
+
+        foreach (var candidate in candidates)
+        {
+            cumulative += Math.Max(0.0, candidate.Weight);
+            if (roll <= cumulative)
+            {
+                return candidate.Condition;
+            }
+        }
+
+        return candidates[^1].Condition;
     }
 
     private void ApplyWeatherCondition(WeatherCondition condition)
@@ -550,6 +741,9 @@ public sealed class SimulationEngine
                 break;
             case WeatherCondition.Windy:
                 _model.WeatherState.Apply(condition, 9.5 + (_microRandom.NextDouble() * 5.5), seasonalBaseTemperature - 2.0, 0.88, 0.84, 1.22, 0.58, 0.20, 0.10);
+                break;
+            case WeatherCondition.Fog:
+                _model.WeatherState.Apply(condition, 4.8 + (_microRandom.NextDouble() * 2.8), seasonalBaseTemperature - 1.8, 0.80, 0.76, 1.18, 0.30, 0.14, 0.06);
                 break;
             case WeatherCondition.Snow:
                 _model.WeatherState.Apply(condition, 8.0 + (_microRandom.NextDouble() * 5.5), seasonalBaseTemperature - 5.0, 0.72, 0.66, 1.42, 0.84, 0.72, 0.65);
@@ -840,16 +1034,18 @@ public sealed class SimulationEngine
     private void ProcessRandomIncidents(TimeSpan delta)
     {
         var dtSeconds = delta.TotalSeconds;
+        var tuning = _options.RiskTuning ?? new SimulationRiskTuningProfile();
+        var globalRisk = Math.Clamp(tuning.GlobalRiskMultiplier, 0.25, 4.00);
         var weatherFactor = _model.WeatherState.RiskMultiplier * _model.SeasonalityProfile.IncidentPressureMultiplier;
         var pressureModeFactor = _options.PressureMode == SimulationPressureMode.Realistic ? 0.72 : 1.55;
-        var pressure = _model.DayProfile.IncidentPressure * _options.RandomIncidentMultiplier * pressureModeFactor;
+        var pressure = _model.DayProfile.IncidentPressure * _options.RandomIncidentMultiplier * pressureModeFactor * globalRisk;
 
         var blackoutCascade = 1.0 + _eventualityTree.EvaluateCascadePressure(
             "electrica",
             _elapsed,
             new[] { "grid", _model.WeatherState.Condition.ToString() });
 
-        var blackoutRate = 0.00000012 * pressure * weatherFactor * blackoutCascade;
+        var blackoutRate = 0.00000012 * pressure * weatherFactor * blackoutCascade * tuning.PowerOutageProbabilityMultiplier;
         if (!_systemWidePowerOutage && !_accidentTriggered && ShouldOccur(blackoutRate, dtSeconds) && TryAcquireCooldown("grid-blackout", TimeSpan.FromMinutes(20)))
         {
             ApplySystemWideElectricalFailure("Aleatorio", EventSeverity.Critical, TimeSpan.FromMinutes(5 + _microRandom.Next(0, 4)));
@@ -911,13 +1107,50 @@ public sealed class SimulationEngine
             var mechanicalCascade = 1.0 + _eventualityTree.EvaluateCascadePressure("mecanica", _elapsed, tags);
             var electricalCascade = 1.0 + _eventualityTree.EvaluateCascadePressure("electrica", _elapsed, tags);
 
-            var mechanicalRate = 0.00000085 * pressure * segmentRiskMultiplier * loadFactor * mechanicalCascade * (1.0 + ((1.0 - cabin.MechanicalHealth) * 2.2));
+            var wearRate = 0.00000105 * pressure * segmentRiskMultiplier * loadFactor * tuning.MechanicalWearProbabilityMultiplier * (0.85 + ((1.0 - cabin.BrakeHealth) * 0.60));
+            if (ShouldOccur(wearRate, dtSeconds) && TryAcquireCooldown($"wear-{cabin.Id}", TimeSpan.FromMinutes(12)))
+            {
+                var wearAmount = 0.02 + (_microRandom.NextDouble() * 0.03);
+                cabin.ApplyMechanicalDamage(wearAmount, false, TimeSpan.Zero);
+                cabin.ApplyBrakeDamage(0.01 + (_microRandom.NextDouble() * 0.025));
+                EmitEvent(
+                    SimulationEventType.MechanicalWear,
+                    cabin.MechanicalHealth < 0.58 || cabin.BrakeHealth < 0.58 ? EventSeverity.Warning : EventSeverity.Info,
+                    $"Desgaste progresivo detectado en {cabin.Code}",
+                    $"La telemetría de rodadura y frenado revela desgaste acumulado en {cabin.Code}; se recomienda inspección preventiva.",
+                    cabin.MechanicalHealth < 0.58 || cabin.BrakeHealth < 0.58 ? 6 : 3,
+                    "Aleatorio",
+                    cabin: cabin,
+                    segment: segment);
+            }
+
+            var mechanicalRate = 0.00000085 * pressure * segmentRiskMultiplier * loadFactor * mechanicalCascade * tuning.CabinMechanicalFailureProbabilityMultiplier * (1.0 + ((1.0 - cabin.MechanicalHealth) * 2.2));
             if (ShouldOccur(mechanicalRate, dtSeconds) && TryAcquireCooldown($"mechanical-{cabin.Id}", TimeSpan.FromMinutes(16)))
             {
                 ApplyMechanicalFailure(cabin, forcedSevere: false, sourceTag: "Aleatorio");
             }
 
-            var electricalRate = 0.00000055 * pressure * segmentRiskMultiplier * electricalCascade * (0.85 + ((1.0 - cabin.ElectricalHealth) * 2.0));
+            var voltageSpikeRate = 0.00000072 * pressure * segmentRiskMultiplier * electricalCascade * tuning.VoltageSpikeProbabilityMultiplier * (0.90 + ((1.0 - cabin.ElectricalHealth) * 1.20));
+            if (ShouldOccur(voltageSpikeRate, dtSeconds) && TryAcquireCooldown($"voltage-spike-{cabin.Id}", TimeSpan.FromMinutes(14)))
+            {
+                var spikeDamage = 0.05 + (_microRandom.NextDouble() * 0.06);
+                var escalate = cabin.ElectricalHealth < 0.58 || _microRandom.NextDouble() < 0.24;
+                cabin.ApplyElectricalDamage(spikeDamage, escalate, TimeSpan.FromMinutes(3 + _microRandom.Next(0, 2)));
+                cabin.ActivateEmergencyBrake(TimeSpan.FromMinutes(escalate ? 2 : 1));
+                EmitEvent(
+                    SimulationEventType.VoltageSpike,
+                    escalate ? EventSeverity.Warning : EventSeverity.Info,
+                    $"Pico de tensión en {cabin.Code}",
+                    escalate
+                        ? $"{cabin.Code} recibió una sobretensión que obligó a freno protector y verificación del subsistema eléctrico."
+                        : $"{cabin.Code} registró una sobretensión breve contenida por protecciones internas.",
+                    escalate ? 8 : 4,
+                    "Aleatorio",
+                    cabin: cabin,
+                    segment: segment);
+            }
+
+            var electricalRate = 0.00000055 * pressure * segmentRiskMultiplier * electricalCascade * tuning.PowerOutageProbabilityMultiplier * (0.85 + ((1.0 - cabin.ElectricalHealth) * 2.0));
             if (ShouldOccur(electricalRate, dtSeconds) && TryAcquireCooldown($"electrical-{cabin.Id}", TimeSpan.FromMinutes(18)))
             {
                 cabin.ApplyElectricalDamage(0.10 + (_microRandom.NextDouble() * 0.12), true, TimeSpan.FromMinutes(4 + _microRandom.Next(0, 3)));
@@ -1480,11 +1713,19 @@ public sealed class SimulationEngine
                 risk += 18 * (1.0 + (1.0 - cabin.MechanicalHealth));
                 criticalIssues++;
             }
+            else if (cabin.MechanicalHealth < 0.65 || cabin.BrakeHealth < 0.65)
+            {
+                risk += 5.5 * (1.0 + ((1.0 - Math.Min(cabin.MechanicalHealth, cabin.BrakeHealth)) * 1.4));
+            }
 
             if (cabin.HasElectricalFailure)
             {
                 risk += 15 * (1.0 + (1.0 - cabin.ElectricalHealth));
                 criticalIssues++;
+            }
+            else if (cabin.ElectricalHealth < 0.65)
+            {
+                risk += 4.5 * (1.0 + ((1.0 - cabin.ElectricalHealth) * 1.3));
             }
 
             if (cabin.IsEmergencyBrakeActive)
@@ -1507,6 +1748,11 @@ public sealed class SimulationEngine
 
         risk += (_model.WeatherState.RiskMultiplier - 1.0) * 14.0;
         risk += _model.WeatherState.IcingRiskIndex * 12.0;
+
+        if (_model.WeatherState.Condition == WeatherCondition.Fog)
+        {
+            risk += 5.0;
+        }
 
         var averageQueue = _model.Stations.Count == 0
             ? 0
@@ -1620,6 +1866,16 @@ public sealed class SimulationEngine
         if (_model.WeatherState.Condition == WeatherCondition.Storm)
         {
             return "Operación restringida por tormenta en cotas altas; el sistema prioriza visibilidad y seguridad.";
+        }
+
+        if (_model.WeatherState.Condition == WeatherCondition.Fog)
+        {
+            return "Operación conservadora por neblina densa; la visibilidad cayó y la interfaz resalta telemetría crítica.";
+        }
+
+        if (_model.WeatherState.Condition == WeatherCondition.Windy)
+        {
+            return "Operación vigilada por ráfagas de viento; el despacho se ajusta para preservar estabilidad y separación.";
         }
 
         if (_model.Cabins.Any(cabin => cabin.IsOutOfService))

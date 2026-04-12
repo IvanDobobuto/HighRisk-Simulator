@@ -168,6 +168,13 @@ public sealed class SimulationReportExportService
             column.Item().Element(SectionCard).Column(section =>
             {
                 section.Spacing(6);
+                section.Item().Text("Calibracion aplicada").Bold().FontSize(14);
+                section.Item().Text(report.RiskCalibrationSummary);
+            });
+
+            column.Item().Element(SectionCard).Column(section =>
+            {
+                section.Spacing(6);
                 section.Item().Text("Lectura operacional").Bold().FontSize(14);
                 section.Item().Text($"Estaciones registradas: {report.Stations.Count}. Cabinas registradas: {report.Cabins.Count}. Eventos totales: {report.TotalEvents}.");
                 section.Item().Text($"Pasajeros procesados: {report.TotalProcessedPassengers}. Pasajeros diferidos: {report.TotalRejectedPassengers}. Huella causal: {report.EventualityFingerprint}.");

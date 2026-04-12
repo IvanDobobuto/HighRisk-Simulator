@@ -3,20 +3,49 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
-        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F4F7FB"/>
-        <SolidColorBrush x:Key="CardBackgroundBrush" Color="White"/>
-        <SolidColorBrush x:Key="SoftBorderBrush" Color="#D9E2EC"/>
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#EEF3F8"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SoftBorderBrush" Color="#D7E2EE"/>
         <SolidColorBrush x:Key="AccentBrush" Color="#2563EB"/>
         <SolidColorBrush x:Key="AccentBrushDark" Color="#1D4ED8"/>
         <SolidColorBrush x:Key="TitleBrush" Color="#0F172A"/>
         <SolidColorBrush x:Key="MutedTextBrush" Color="#475569"/>
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#F8FBFF"/>
+
+        <Style TargetType="Window">
+            <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+            <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
+        </Style>
 
         <Style x:Key="CardBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="CornerRadius" Value="18"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource TitleBrush}"/>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource TitleBrush}"/>
+        </Style>
+
+        <Style TargetType="DatePicker">
+            <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource TitleBrush}"/>
         </Style>
 
         <Style x:Key="AccentButtonStyle" TargetType="Button">
@@ -27,7 +56,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource AccentBrushDark}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="Margin" Value="0,0,10,10"/>
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
@@ -38,9 +67,18 @@
             <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="Margin" Value="0,0,10,10"/>
         </Style>
 
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}"/>
+        </Style>
+
+        <Style TargetType="TabItem">
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
 
         <Style x:Key="DisplayDataGridStyle" TargetType="DataGrid">
             <Setter Property="Background" Value="White"/>

@@ -1,3 +1,4 @@
+
 namespace HighRiskSimulator.Core.Domain;
 
 /// <summary>
@@ -82,6 +83,7 @@ public enum WeatherCondition
 {
     Clear,
     Cold,
+    Fog,
     Windy,
     Snow,
     Storm
@@ -105,8 +107,10 @@ public enum SimulationEventType
 {
     PassengerDemand,
     Overload,
+    MechanicalWear,
     MechanicalFailure,
     ElectricalFailure,
+    VoltageSpike,
     ExtremeWeather,
     EmergencyBrake,
     CabinOutOfService,

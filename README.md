@@ -1,91 +1,102 @@
 # HighRisk Simulator
 
-Simulador estadístico-operativo de teleférico construido sobre **.NET 8 + WPF**, rediseñado para representar de forma más realista una jornada del sistema Mukumbarí mediante:
+Simulador estadístico-operativo del teleférico Mukumbarí construido sobre **.NET 8 + WPF**, rediseñado para entregar una jornada más realista, una interfaz mucho más clara y una base sólida para persistencia futura en **MySQL**.
 
-- motor por ticks con **delta time escalable** (1x, 2x, 3x)
+La iteración actual consolida:
+
+- motor por ticks con **delta time escalable de 1x a 50x**
 - **múltiples cabinas por tramo** configurables
-- **lista circular doblemente enlazada** para la gestión cíclica de cabinas
-- **grafo dirigido** para estaciones y conexiones
-- **heap mínimo manual** para contingencias y acciones futuras
-- **pila enlazada manual** para historial reciente de eventos
-- **árbol causal interno** para memoria contextual de eventualidades
-- clima, estacionalidad y demanda no forzada
-- simulacro instantáneo con **exportación a PDF y JSON**
-- base desacoplada para persistencia futura con **SQLite**
+- **panel de operador colapsable** para centralizar controles y no saturar la escena
+- **sandbox visual 2D** escalable con `ViewBox` y `Canvas` lógico fijo
+- **telemetría constante de estaciones** con colas de ascenso y descenso visibles
+- **sistema de notificaciones tipo toast** para confirmar acciones sin tapar la simulación
+- **panel maestro de riesgos** con multiplicador global y sintonía fina por categoría
+- **inyección de fallas en caliente** sin necesidad de pausar la corrida
+- clima enriquecido con **tormenta, vientos fuertes, neblina y nieve**
+- eventos adicionales de **desgaste mecánico** y **picos de tensión**
+- **sprites 2D funcionales** para cabinas, estaciones, alertas y estados de frenado
+- telemetría temporal con **ScottPlot**
+- exportación estructurada a **PDF y JSON**
+- contratos listos para futura persistencia histórica en **MySQL**
 
-La prioridad de esta iteración fue acercar el simulador a una jornada creíble: no todos los días deben terminar en catástrofe, pero sí deben existir condiciones, memorias y combinaciones que permitan que los incidentes emerjan cuando el entorno realmente los favorece.
+La prioridad de esta versión fue elevar la calidad de la experiencia completa: mejor lectura, mejor control, más realismo, más trazabilidad y más argumentos técnicos para justificar cada decisión del proyecto.
 
 ---
 
 ## Estado actual del proyecto
 
-### Prioridad alta completada
-- Motor principal con **tiempo fijo por ticks** y escalamiento 1x, 2x y 3x.
+### Núcleo funcional consolidado
+- Motor principal con tiempo fijo por ticks y escalamiento hasta **50x**.
 - Base física y lógica de movimiento para cabinas por tramo.
 - Modelo dirigido de estaciones y segmentos usando **grafo manual**.
 - Gestión cíclica de cabinas con **lista circular doblemente enlazada**.
 - Configuración de **múltiples cabinas por sentido y por tramo**.
-- Interfaz preparada para escenarios reales e intensificados.
+- Sistema de eventos aleatorios, guionizados y forzados en tiempo real.
+- Exportación completa de reportes en **PDF** y **JSON**.
 
-### Prioridad media completada
-- Sistema de eventos no forzado con:
-  - sobrecarga
-  - falla mecánica
-  - falla eléctrica
-  - clima extremo
-  - frenado de emergencia
-  - cabina fuera de servicio
-  - pérdida de separación
-  - accidente por escalamiento severo
-- **cola de prioridad / heap** para incidentes programados, retornos y transferencias futuras.
-- **árbol causal interno** para encadenamiento contextual de eventualidades.
-- temporadas y feriados venezolanos con impacto sobre afluencia.
-- dos perfiles de presión:
-  - **Operación realista**
-  - **Entrenamiento intensificado**
+### UI/UX consolidada
+- Encabezado orientado a lectura rápida del estado actual.
+- **Panel lateral colapsable** con controles agrupados por responsabilidad.
+- Escena principal tipo sandbox con cabinas, estaciones, clima, diagnósticos y colas.
+- Telemetría visible de estaciones sin tener que cambiar de pestaña.
+- Controles de tiempo con presets y ajuste manual continuo.
+- Quick-triggers para intervención operativa sin interrumpir la simulación.
+- Confirmaciones no intrusivas mediante **toasts**.
 
-### Prioridad baja completada
-- Interfaz WPF reorganizada con scroll horizontal/vertical para pantallas pequeñas.
-- Panel de control con inyección manual de fallas.
-- telemetría con **ScottPlot** y seguimiento automático de la ventana temporal.
-- exportación de reporte estructurado en **PDF** y respaldo técnico en **JSON**.
+### Base analítica y de persistencia preparada
+- Reporte de corrida con resumen de calibración de riesgo.
+- Contratos desacoplados para snapshots y reportes históricos.
+- Documento privado y contratos listos para futura integración con **MySQL**.
 
 ---
 
-## Qué cambió respecto a la versión anterior
+## Qué cambió respecto a la iteración anterior
 
-### 1) Colas mucho más realistas
-Ahora las colas respetan reglas operativas de borde:
-- **Barinitas** no genera cola de descenso.
-- **Pico Espejo** no genera cola de ascenso.
-- las estaciones intermedias **no crecen artificialmente** por sí mismas.
-- las colas intermedias y superiores nacen principalmente cuando una cabina **descarga pasajeros reales** y luego esos pasajeros deciden continuar, quedarse o retornar.
+### 1) La interfaz dejó de competir contra el usuario
+Se eliminó la sensación de desorden reorganizando la operación en tres zonas claras:
+- control maestro lateral
+- escena visual central
+- panel analítico y telemétrico lateral
 
-### 2) Misma semilla, corridas parecidas pero no clones exactos
-Se separó la lógica en:
-- **semilla base**: define el “día macro”
-- **semilla de variación operacional**: introduce pequeñas diferencias entre corridas del mismo día
+La decisión mejora lectura, reduce fricción y permite que el usuario sepa desde el primer minuto dónde configurar, dónde observar y dónde diagnosticar.
 
-Con esto, dos simulaciones con la misma semilla conservan el mismo carácter general, pero no repiten exactamente el mismo log en cada ejecución.
+### 2) El tiempo ya no limita las pruebas académicas
+Ahora el simulador puede acelerarse hasta **50x** y además permite ajuste manual continuo. Esto sirve para:
+- recorrer jornadas largas rápidamente
+- validar estabilidad del motor
+- comparar resultados sin esperar una ejecución lenta
 
-### 3) Eventualidades con memoria interna
-Ya no se fuerza que “algo grave” ocurra cada jornada. El motor acumula contexto en un **árbol causal** que considera:
-- clima previo
-- severidad de eventos pasados
-- presión del día
-- recencia de incidentes
-- categoría de la eventualidad
+### 3) El riesgo ahora se puede calibrar de forma explícita
+La corrida dejó de depender solo de presión global. Ahora existe un perfil maestro con:
+- multiplicador global
+- tormentas
+- vientos fuertes
+- neblina
+- desgaste mecánico
+- falla mecánica de cabina
+- cortes eléctricos
+- picos de tensión
 
-Eso permite que una falla nueva no se evalúe aislada, sino en función de lo que el sistema ya venía sufriendo.
+Esto permite construir escenarios académicos muy específicos sin romper el motor ni duplicar lógica.
 
-### 4) Simulacro instantáneo real
-La interfaz ahora tiene dos caminos:
-- **Simulacro instantáneo**: reconstruye una jornada desde cero y la completa al instante.
-- **Finalizar y exportar**: toma la corrida actual, la acelera hasta el cierre y exporta el resultado.
+### 4) La escena visual ya no es solo decorativa
+La vista principal ahora representa:
+- estaciones detalladas
+- cableado visual
+- cabinas con estados diferenciados
+- indicadores rápidos de fallas
+- colas por estación
+- superposiciones de clima
 
-Ambos generan:
-- **PDF estructurado**
-- **JSON técnico**
+La escena está diseñada para reforzar lectura operacional, no para distraer.
+
+### 5) La persistencia futura dejó de ser abstracta
+La arquitectura ya no se queda en “algún día se conectará una base”. Ahora existe una base contractual concreta para **MySQL**, con documentación privada de integración y lineamientos de esquema para guardar:
+- corridas
+- snapshots
+- eventos
+- telemetría
+- calibraciones
 
 ---
 
@@ -100,10 +111,12 @@ HighRisk-Simulator/
 |   |-- Architecture.md
 |   |-- DataStructuresJustification.md
 |   |-- ManualDeUso.md
+|   |-- RevisionEstabilidadUI.md
 |   |-- Roadmap.md
 |   |-- SimulationRealism.md
+|   |-- VerificacionTecnica.md
 |   `-- Privado/
-|       `-- IntegracionSQLite.md
+|       `-- IntegracionMySQL.md
 |-- HighRiskSimulator.Core/
 |   |-- Domain/
 |   |-- DataStructures/
@@ -123,74 +136,77 @@ HighRisk-Simulator/
 
 ---
 
-## Estructuras y decisiones académicas principales
+## Decisiones académicas principales
 
 ### Lista circular doblemente enlazada
-Se usa porque la operación de cabinas por tramo es cíclica. La estructura expresa mejor la relación **siguiente / anterior** que una lista lineal o un arreglo convencional.
+Se usa porque la operación de cabinas por tramo es cíclica. La estructura expresa mejor la relación **siguiente / anterior** que una colección lineal.
 
 ### Grafo dirigido
-Se usa porque el sistema es una red de estaciones y tramos, no solo una lista de nombres. Aunque Mukumbarí hoy sea lineal, el modelo queda listo para rutas futuras, análisis de conectividad y crecimiento del simulador.
+Se usa porque el sistema es una red de estaciones y segmentos. Aunque Mukumbarí sea lineal en esta etapa, el modelo queda listo para crecer sin rediseñar la base.
 
-### Heap manual
-Se usa para manejar acciones futuras con prioridad:
-- incidentes guionizados
-- retornos diferidos de pasajeros
+### Heap mínimo manual
+Se usa para gestionar acciones futuras con prioridad temporal:
+- incidentes programados
+- retornos diferidos
 - transferencias internas
-- reacciones encadenadas
-
-Un heap es mejor que una lista ordenada porque evita reordenar todo el conjunto en cada inserción.
+- contingencias encadenadas
 
 ### Pila enlazada manual
-Se usa para mantener el historial reciente de eventos con acceso **LIFO**, ideal para UI, trazabilidad rápida y justificación de los últimos estados críticos.
+Se usa para el historial reciente de eventos con acceso **LIFO**, adecuado para UI, narrativa y trazabilidad rápida.
 
 ### Árbol causal interno
-Se eligió árbol porque permite representar relaciones de dependencia entre eventualidades. No se usa como visual público, sino como estructura interna para que el sistema recuerde el contexto de lo ya ocurrido antes de calcular la siguiente desviación.
+Se eligió porque permite conservar memoria contextual de la jornada y usarla para modular cascadas de riesgo.
+
+### Perfil maestro de calibración
+Se encapsuló en `SimulationRiskTuningProfile` para concentrar la configuración del riesgo en un único contrato coherente. Esta decisión es mejor que distribuir sliders y multiplicadores sueltos porque evita dispersión, simplifica serialización y deja lista la persistencia de calibraciones.
+
+### Sandbox visual con `Canvas` + `ViewBox`
+Se eligió esta combinación en lugar de un motor gráfico externo porque:
+- conserva estabilidad en WPF
+- reduce dependencias y superficie de fallo
+- permite resolución lógica fija y escalado proporcional
+- mantiene el motor académico separado de la capa visual
+
+### Preparación para MySQL en lugar de acoplar SQL al motor
+Se dejaron contratos y settings desacoplados para que la base de datos futura no contamine la lógica de simulación. El motor produce snapshots y reportes; la infraestructura persistente será responsable de almacenarlos.
 
 ---
 
-## Escenario base actual
-
-El escenario principal toma como referencia el teleférico Mukumbarí:
-- **5 estaciones**
-- **4 tramos**
-- recorrido total cercano a **12.5 km**
-- configuración base de **1 cabina por sentido por tramo**
-
-Además, el simulador permite elevar la densidad de cabinas por sentido para validaciones académicas de separación segura y presión operacional, sin perder la configuración realista base como punto de referencia.
-
----
-
-## Qué muestra la interfaz
+## Qué muestra la interfaz actual
 
 ### Encabezado
 - estado operacional
 - tiempo simulado
-- clima actual
-- pasajeros procesados
-- ocupación media
-- incidentes activos
-- barra de riesgo agregado
+- riesgo agregado
+- narrativa actual de la jornada
 
-### Panel de control
+### Panel lateral de operador
 - modo de simulación
-- escenario guionizado
-- semilla base
+- escenario
 - fecha simulada
-- modo de presión
-- velocidad 1x / 2x / 3x
-- cabinas por sentido
+- presión operacional
+- densidad de cabinas
+- velocidad por preset y control manual
+- calibración completa de riesgos
+- quick-triggers operativos
+- controles de ejecución y exportación
 
-### Inyección de fallas
-- falla mecánica
-- falla eléctrica
-- sobrecarga
-- tormenta
-- parada de emergencia
+### Centro visual
+- estaciones con colas por sentido
+- escena sandbox con cableado, entorno y cabinas
+- estados visuales de cabina
+- indicadores rápidos de falla
+- superposición de clima
 
-### Pestañas
-- **Operación**: perfil 1D y telemetría ScottPlot
-- **Eventos y reportes**: línea de eventos y trazabilidad de exportación
-- **Cabinas y estaciones**: tablas operativas del estado actual
+### Lateral analítico
+- ficha operativa de jornada
+- gráfica histórica de telemetría
+- salida de exportación y trazabilidad
+
+### Pestañas inferiores
+- **Eventos**
+- **Cabinas**
+- **Estaciones**
 
 ---
 
@@ -218,35 +234,25 @@ dotnet test
 ## Dependencias relevantes
 
 ### En uso ahora
-- `ScottPlot.WPF` para telemetría en tiempo real.
-- `QuestPDF` para exportación estructurada de reportes.
-- `xUnit` y `Microsoft.NET.Test.Sdk` para pruebas.
+- **ScottPlot.WPF** para telemetría temporal.
+- **QuestPDF** para reporte multipágina.
 
-### Preparadas para después
-- SQLite a través de `ISimulationSnapshotRepository` e `ISimulationRunRepository`.
+### Deliberadamente no integradas en esta fase
+- motores de juego 2D externos
+- frameworks de física ajenos al núcleo WPF
+- acceso directo a MySQL desde la capa de simulación
 
----
-
-## Documentación incluida
-
-- `Docs/Architecture.md` - arquitectura y flujo técnico del sistema.
-- `Docs/DataStructuresJustification.md` - justificación formal de estructuras manuales.
-- `Docs/ManualDeUso.md` - guía de uso de la UI y de los reportes.
-- `Docs/Roadmap.md` - siguientes fases sugeridas del proyecto.
-- `Docs/SimulationRealism.md` - explicación de realismo operativo, colas, temporada y árbol causal.
-- `Docs/RevisionEstabilidadUI.md` - notas de corrección sobre estabilidad, exportación y bindings de la interfaz.
-- `Docs/Privado/IntegracionSQLite.md` - guía privada para tu equipo, no pensada para entrega académica.
+La decisión fue priorizar control, estabilidad y justificación académica antes que complejidad ornamental.
 
 ---
 
-## Nota importante sobre la fase actual
+## Documentación del proyecto
 
-Esta versión deja una base mucho más sólida y más realista, pero sigue siendo un simulador académico. Aún no pretende reemplazar un modelo físico industrial completo del sistema real. La prioridad fue dejar:
-
-- coherencia operacional
-- crecimiento técnico correcto
-- estructuras justificables
-- interfaz usable
-- reportes útiles
-
-para que las siguientes fases puedan enfocarse en 2D, texturas, terreno, partículas, replay histórico y persistencia real sin rehacer el núcleo.
+- `Docs/Architecture.md` - organización por capas y justificación de la arquitectura.
+- `Docs/DataStructuresJustification.md` - defensa formal de estructuras y contratos seleccionados.
+- `Docs/ManualDeUso.md` - guía de operación de la interfaz y de los flujos académicos.
+- `Docs/RevisionEstabilidadUI.md` - decisiones de estabilidad y UX aplicadas.
+- `Docs/Roadmap.md` - evolución sugerida desde esta base.
+- `Docs/SimulationRealism.md` - criterios de realismo adoptados.
+- `Docs/VerificacionTecnica.md` - revisión técnica y checklist de validación.
+- `Docs/Privado/IntegracionMySQL.md` - guía privada para integrar la base de datos histórica.

@@ -24,34 +24,74 @@
 - **Escenario específico**: reproduce casos preparados para validación.
 
 ### Semilla base
-Define el “carácter general” del día.
+Define el carácter general del día.
 
 ### Fecha simulada
 Afecta:
 - temporada
 - fines de semana
 - feriados
-- vacaciones
 - presión turística
 
 ### Modo de presión
-- **Operación realista**: la mayoría de las jornadas deben ser estables.
-- **Entrenamiento intensificado**: sube la probabilidad de desvíos y presión operacional.
+- **Operación realista**: la mayoría de las jornadas deben poder cerrar de forma controlada.
+- **Entrenamiento intensificado**: aumenta presión operacional y frecuencia de contingencias.
 
-### Velocidad
-- 1x
-- 2x
-- 3x
-
-### Cabinas por sentido
+### Densidad de cabinas
 Permite probar:
 - configuración base realista
 - presión moderada
 - estrés de separación
 
+### Aceleración de tiempo
+La versión actual permite:
+- presets rápidos hasta **50x**
+- ajuste manual continuo mediante slider
+
+Esto se usa para validar jornadas largas sin modificar el motor.
+
 ---
 
-## 4. Controles principales
+## 4. Estructura de la interfaz
+
+### Encabezado
+Resume:
+- estado operacional
+- tiempo simulado
+- riesgo actual
+- narrativa del sistema
+
+### Panel de operador colapsable
+Agrupa:
+- configuración de sesión
+- aceleración de tiempo
+- calibración de riesgos
+- quick-triggers
+- comandos de ejecución y exportación
+
+### Centro visual
+Muestra:
+- telemetría de estaciones
+- escena sandbox del teleférico
+- clima actual
+- HUD operacional
+
+### Panel analítico lateral
+Muestra:
+- perfil del día
+- presión operacional
+- semilla derivada
+- gráfica histórica de telemetría
+- salida de exportación
+
+### Pestañas inferiores
+- **Eventos**
+- **Cabinas**
+- **Estaciones**
+
+---
+
+## 5. Controles principales
 
 ### Iniciar
 Pone el motor en ejecución continua.
@@ -65,169 +105,179 @@ Avanza un tick lógico y vuelve a pausa.
 ### Reiniciar
 Reconstruye la jornada completa con la configuración actual.
 
-### Simulacro instantáneo
+### Simulacro completo
 Crea una nueva corrida desde cero, la completa inmediatamente y exporta:
 - PDF
 - JSON
 
-### Finalizar y exportar
+### Cerrar y exportar
 Toma la corrida actual, la lleva al cierre y exporta:
 - PDF
 - JSON
 
-### Exportar reporte actual
-Genera reporte de la corrida tal como va en ese momento.
+### Exportar reporte
+Genera el reporte de la corrida tal como va en ese momento.
 
 ---
 
-## 5. Inyección de fallas
+## 6. Panel maestro de riesgos
+
+El panel maestro permite ajustar la probabilidad relativa del sistema sin tocar código.
+
+### Multiplicador global
+Escala el entorno completo. Se usa para mover toda la jornada hacia un contexto más estable o más exigente.
+
+### Sintonía fina disponible
+Se pueden ajustar individualmente:
+- tormentas
+- vientos fuertes
+- neblina
+- desgaste mecánico
+- falla mecánica de cabina
+- cortes de energía
+- picos de tensión
+
+### Aplicar calibración
+El botón **Aplicar calibración** envía la nueva matriz directamente al motor. La simulación no necesita reiniciarse para usarla.
+
+---
+
+## 7. Inyección de fallas en caliente
 
 Primero se selecciona el objetivo:
 - sistema completo / auto
 - cabina específica
 
-Interpretación:
-- para fallas de alcance global (`falla eléctrica`, `tormenta`, `parada de emergencia`), la opción **sistema completo** actúa sobre toda la operación
-- para fallas focalizadas (`falla mecánica`, `sobrecarga`), la opción **auto** elige la cabina más cargada del snapshot actual
-
 Luego se puede inyectar:
-- falla mecánica
-- falla eléctrica
-- sobrecarga
 - tormenta
+- viento fuerte
+- neblina
+- sobrecarga
+- falla mecánica
+- desgaste mecánico
+- falla eléctrica
+- pico de tensión
 - parada de emergencia
 
 Estas acciones sirven para:
 - validar protocolos
 - observar degradación
-- entrenar respuesta del sistema
+- entrenar respuestas reactivas
+- construir demostraciones académicas específicas
+
+La corrida no necesita estar en pausa para aceptar una inyección.
 
 ---
 
-## 6. Qué muestra la interfaz
+## 8. Telemetría de estaciones
 
-## Encabezado
-- estado operacional
-- tiempo simulado
-- clima
-- pasajeros procesados
-- ocupación media
-- incidentes activos
-- barra de riesgo
+La franja superior del bloque central muestra constantemente, por estación:
+- cola de ascenso
+- cola de descenso
+- total visible de presión local
+- regla de embarque
 
-## Contexto de jornada
-- perfil del día
-- temporada detectada
-- modo de presión
-- visibilidad
-- hielo
-- semilla operacional derivada
-- rutas de exportación
-
-## Pestaña Operación
-### Perfil operativo del sistema
-Vista 1D del recorrido Mukumbarí con:
-- estaciones
-- colas por sentido
-- reglas de embarque
-- cabinas con color por estado
-
-### Colores de cabinas
-- verde: operación normal
-- azul: detenida en estación
-- naranja: alerta o frenado
-- rojo: condición crítica o fuera de servicio
-
-### Telemetría ScottPlot
-Grafica:
-- riesgo
-- ocupación media
-- presión climática
-
-La ventana temporal se mueve sola; ya no es necesario arrastrar la vista manualmente.
-
-## Pestaña Eventos y reportes
-- log de eventos recientes
-- descripción del flujo de exportación
-
-## Pestaña Cabinas y estaciones
-- tabla operativa de cabinas
-- tabla de colas y reglas por estación
+Esta información debe usarse para detectar:
+- congestión creciente
+- estaciones críticas
+- desbalance entre sentidos
 
 ---
 
-## 7. Interpretación de la semilla
+## 9. Interpretación de la escena visual
 
-La simulación ya no usa solo una semilla fija. Ahora hay dos niveles:
+### Cabinas
+La escena representa cabinas con sprite funcional y diagnóstico rápido.
 
-### Semilla base
-Controla la identidad general del día.
+### Estados visuales principales
+- **verde**: operación normal
+- **azul**: alerta moderada
+- **naranja**: frenado o condición vigilada
+- **rojo**: falla relevante
+- **gris**: fuera de servicio
 
-### Semilla de variación operacional
-Se genera internamente en cada corrida.
+### Iconografía de estado
+- `⚙` o `⌁`: problema o desgaste mecánico
+- `⚡` o `ϟ`: problema eléctrico o sobretensión
+- `■`: frenado activo o parada protectiva
+- `×`: cabina fuera de servicio
 
-Resultado:
-- dos corridas con la misma semilla base se parecen mucho
-- pero no son copias exactas del mismo día
-
-Eso hace al simulador más realista.
+### Clima
+La escena superpone efectos según el estado actual:
+- viento
+- neblina
+- nieve
+- tormenta
 
 ---
 
-## 8. Reportes exportados
+## 10. Consola de mensajes
+
+Cada acción importante del operador genera una notificación tipo toast.
+
+Estas notificaciones se usan para confirmar:
+- inicio o pausa
+- aplicación de calibración
+- inyección de falla
+- exportación
+- cierre de jornada
+
+La ventaja es que confirman la acción sin ocultar la escena.
+
+---
+
+## 11. Reportes exportados
 
 Cada exportación genera:
 
 ### PDF
 Incluye:
 - resumen ejecutivo
-- estado final
 - métricas consolidadas
+- calibración de riesgo aplicada
 - tabla por estación
 - tabla por cabina
 - línea de tiempo de eventos
 - conclusiones de la jornada
 
 ### JSON
-Incluye respaldo técnico serializado del reporte para auditoría o futura integración.
+Incluye respaldo técnico serializado del reporte para auditoría o futura integración histórica.
 
 ### Ubicación
 Por defecto los artefactos se guardan dentro de la carpeta **Documentos/HighRiskSimulator/Exports/{fecha}** del usuario.
 
 ---
 
-## 9. Validaciones manuales sugeridas
+## 12. Validaciones manuales sugeridas
 
-### Validación 1: cola realista
+### Validación 1: control del tiempo
+1. Ajustar el slider de velocidad a 50x.
+2. Iniciar simulación.
+3. Verificar que el tiempo avance acelerado sin perder coherencia de la escena ni de la telemetría.
+
+### Validación 2: telemetría de estaciones
 1. Ejecutar modo aleatorio.
-2. Verificar que Barinitas no acumula cola de descenso.
-3. Verificar que Pico Espejo no acumula cola de ascenso.
-4. Verificar que estaciones intermedias solo crecen cuando llegan cabinas y descargan pasajeros.
+2. Verificar que la franja superior muestre ascenso y descenso por estación.
+3. Confirmar que Barinitas y Pico Espejo respetan sus restricciones operativas.
 
-### Validación 2: temporada alta
-1. Seleccionar una fecha de agosto o diciembre.
-2. Reiniciar.
-3. Verificar incremento de presión turística y mayores colas en Barinitas.
+### Validación 3: quick-trigger sin pausa
+1. Iniciar simulación.
+2. Inyectar viento fuerte o neblina sin pausar.
+3. Verificar actualización de escena, narrativa y eventos.
 
-### Validación 3: simulacro instantáneo
+### Validación 4: calibración dinámica
+1. Subir el multiplicador global y la probabilidad de tormenta.
+2. Aplicar calibración.
+3. Observar que la corrida mantiene continuidad y refleja la nueva presión.
+
+### Validación 5: simulacro completo
 1. Configurar semilla, fecha y presión.
-2. Pulsar `Simulacro instantáneo`.
+2. Pulsar `Simulacro completo`.
 3. Verificar generación de PDF y JSON.
-
-### Validación 4: cierre acelerado desde una corrida activa
-1. Iniciar simulación.
-2. Dejar correr unos minutos.
-3. Pulsar `Finalizar y exportar`.
-4. Verificar que el reporte parte del estado actual y no de una corrida nueva.
-
-### Validación 5: tormenta e impacto en tramos altos
-1. Iniciar simulación.
-2. Pulsar `Tormenta`.
-3. Observar reducción de velocidad, más alerta y aumento del riesgo.
 
 ---
 
-## 10. Pruebas automáticas
+## 13. Pruebas automáticas
 
 Desde la raíz:
 
@@ -235,7 +285,7 @@ Desde la raíz:
 dotnet test
 ```
 
-Las pruebas cubren:
+Las pruebas cubren principalmente:
 - lista circular
 - grafo
 - heap
@@ -245,13 +295,13 @@ Las pruebas cubren:
 
 ---
 
-## 11. Lo que aún no hace esta versión
+## 14. Lo que aún no hace esta versión
 
 Todavía no incluye:
-- persistencia SQLite real conectada
-- terreno 2D o sandbox visual completo
+- conexión operativa real a MySQL
+- replay histórico desde base de datos
 - pasajeros individuales con identidad propia
 - física industrial profunda de cable, tensión o torque
-- replay histórico desde base de datos
+- protocolos avanzados de rescate y evacuación
 
-La fase actual se centra en realismo operativo y arquitectura correcta.
+La fase actual se centra en interfaz clara, control maestro de riesgo, realismo operativo y base sólida para la siguiente integración persistente.

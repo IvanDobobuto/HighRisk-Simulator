@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 using HighRiskSimulator.Core.Domain.Models;
@@ -87,6 +88,8 @@ public sealed class SimulationRunReport
 
     public string EventualityFingerprint { get; set; } = string.Empty;
 
+    public string RiskCalibrationSummary { get; set; } = string.Empty;
+
     public DateTime SimulationDate { get; set; }
 
     public DateTime GeneratedAtUtc { get; set; }
@@ -124,6 +127,22 @@ public sealed class SimulationRunReport
     public int CatastrophicEvents { get; set; }
 
     public bool EndedByEmergencyStop { get; set; }
+
+    public double GlobalRiskMultiplier { get; set; }
+
+    public double StormProbabilityMultiplier { get; set; }
+
+    public double WindProbabilityMultiplier { get; set; }
+
+    public double FogProbabilityMultiplier { get; set; }
+
+    public double MechanicalWearProbabilityMultiplier { get; set; }
+
+    public double CabinMechanicalFailureProbabilityMultiplier { get; set; }
+
+    public double PowerOutageProbabilityMultiplier { get; set; }
+
+    public double VoltageSpikeProbabilityMultiplier { get; set; }
 
     public IReadOnlyList<SimulationEvent> Timeline { get; set; } = Array.Empty<SimulationEvent>();
 

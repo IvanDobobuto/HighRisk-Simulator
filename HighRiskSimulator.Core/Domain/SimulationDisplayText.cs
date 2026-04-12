@@ -1,3 +1,4 @@
+
 using System;
 
 namespace HighRiskSimulator.Core.Domain;
@@ -81,6 +82,7 @@ public static class SimulationDisplayText
         {
             WeatherCondition.Clear => "Despejado",
             WeatherCondition.Cold => "Frío intenso",
+            WeatherCondition.Fog => "Neblina densa",
             WeatherCondition.Windy => "Viento fuerte",
             WeatherCondition.Snow => "Nevada",
             WeatherCondition.Storm => "Tormenta",
@@ -106,8 +108,10 @@ public static class SimulationDisplayText
         {
             SimulationEventType.PassengerDemand => "Demanda de pasajeros",
             SimulationEventType.Overload => "Sobrecarga",
+            SimulationEventType.MechanicalWear => "Desgaste mecánico",
             SimulationEventType.MechanicalFailure => "Falla mecánica",
             SimulationEventType.ElectricalFailure => "Falla eléctrica",
+            SimulationEventType.VoltageSpike => "Pico de tensión",
             SimulationEventType.ExtremeWeather => "Clima extremo",
             SimulationEventType.EmergencyBrake => "Frenado de emergencia",
             SimulationEventType.CabinOutOfService => "Cabina fuera de servicio",

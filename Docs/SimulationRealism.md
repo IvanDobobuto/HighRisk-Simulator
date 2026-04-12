@@ -2,7 +2,7 @@
 
 ## Objetivo de este documento
 
-Explicar cómo se ajustó el simulador para que el comportamiento se acerque más a una jornada real y deje de “forzar” incidentes o colas artificiales.
+Explicar cómo se ajustó el simulador para que el comportamiento se acerque más a una jornada real y deje de depender de contingencias artificiales o de una interfaz poco legible.
 
 ---
 
@@ -12,8 +12,9 @@ El sistema debe poder producir jornadas donde:
 - no ocurra nada grave
 - ocurran desviaciones leves
 - aparezcan fallas relevantes solo cuando el contexto las favorece
+- el operador pueda intervenir sin romper continuidad temporal
 
-Eso es más realista que obligar a que siempre ocurra una catástrofe.
+Eso es más realista que obligar a que siempre ocurra una catástrofe o que la simulación solo pueda alterarse desde pausa.
 
 ---
 
@@ -22,107 +23,143 @@ Eso es más realista que obligar a que siempre ocurra una catástrofe.
 ### Estación base
 Barinitas recibe la mayor parte de la demanda exógena. Por ello:
 - sí puede crecer la cola de ascenso
-- no debe crecer una cola de descenso
+- no debe crecer una cola de descenso artificial
 
 ### Estaciones intermedias
-No generan grandes colas por sí solas. Su demanda nace sobre todo cuando una cabina descarga pasajeros y esos pasajeros:
-- deciden continuar la ruta
+Su presión nace principalmente cuando una cabina descarga pasajeros y esos pasajeros:
+- continúan la ruta
 - permanecen un tiempo en la estación
 - retornan después
 
 ### Estación final
-Pico Espejo no debe generar ascenso adicional, pero sí puede generar retorno descendente porque muchos pasajeros culminan allí su visita y luego bajan.
+Pico Espejo no genera ascenso adicional, pero sí puede generar retorno descendente.
 
 ---
 
-## 3. Temporadas y calendario venezolano
+## 3. Clima con impacto real
 
-La demanda se ajusta por:
-- fines de semana
-- agosto
-- Navidad y Año Nuevo
-- Carnaval
-- Semana Santa
-- algunos feriados nacionales
+El clima ya no es solo una etiqueta visual. Impacta:
+- velocidad operativa
+- visibilidad
+- presión de riesgo
+- probabilidad de hielo
+- probabilidad relativa de ciertos eventos
 
-Esto hace que el flujo de pasajeros no sea uniforme durante todo el año.
+La fase actual diferencia explícitamente:
+- frío
+- viento fuerte
+- neblina
+- nieve
+- tormenta
 
----
-
-## 4. Dos modos de presión
-
-### Operación realista
-Favorece jornadas mayormente estables. Los incidentes severos son menos frecuentes.
-
-### Entrenamiento intensificado
-Aumenta la presión del entorno para practicar protocolos y observar más contingencias sin reescribir el modelo.
+La neblina se incorporó porque en entrenamiento real la pérdida de visibilidad modifica lectura operacional aunque no exista necesariamente una tormenta severa.
 
 ---
 
-## 5. Misma semilla, día parecido pero no idéntico
+## 4. Dos niveles de variación
 
 El simulador mezcla:
 - una semilla base
 - una variación operacional interna
 
-Con esto se evita el efecto poco realista de repetir exactamente el mismo día cuando la intención del sistema es simular jornadas plausibles, no reproducir clones perfectos.
+Con esto se evita repetir exactamente el mismo día cuando la intención es simular jornadas plausibles, no clones perfectos.
 
 ---
 
-## 6. Árbol causal interno
+## 5. Árbol causal interno
 
-El árbol causal guarda memoria del contexto del día. Ejemplos de uso:
-- un periodo prolongado de viento fuerte puede elevar presión para fallas de frenado o separación
-- una falla previa puede aumentar la vulnerabilidad ante otra desviación
-- un entorno frío con mayor humedad puede volver más sensible el sistema al hielo
+El árbol causal guarda memoria del contexto del día. Ejemplos:
+- un periodo prolongado de viento fuerte puede elevar presión para separación o frenado
+- un desgaste previo puede hacer más probable una falla posterior
+- un entorno de visibilidad degradada puede aumentar la tensión operativa general
 
-El árbol no se muestra en el reporte final, pero sí influye internamente en el cálculo de la presión causal.
-
----
-
-## 7. Clima por severidad y altura
-
-El clima no solo cambia una etiqueta visual. Impacta:
-- velocidad operativa
-- visibilidad
-- riesgo agregado
-- probabilidad de hielo según altitud
-- presión operacional de tramos altos
-
-Por eso los tramos superiores son más sensibles en tormenta, nieve o frío intenso.
+Esto hace que el sistema recuerde lo ocurrido antes de evaluar la siguiente desviación.
 
 ---
 
-## 8. Por qué no se modelaron pasajeros individuales todavía
+## 6. Calibración maestra de riesgo
+
+Se agregó un panel maestro de riesgo para construir entornos específicos sin tocar código.
+
+### Multiplicador global
+Escala la presión general del sistema.
+
+### Sintonía fina
+Permite ajustar individualmente:
+- tormenta
+- viento fuerte
+- neblina
+- desgaste mecánico
+- falla mecánica de cabina
+- corte de energía
+- pico de tensión
+
+La decisión es más realista porque no todas las jornadas de estrés se intensifican por la misma causa.
+
+---
+
+## 7. Nuevos eventos de degradación
+
+### Desgaste mecánico
+Se modeló para representar una degradación previa a la falla dura. Esto mejora realismo porque en operación real muchas fallas no nacen de cero; suelen venir precedidas por señales de fatiga o pérdida de eficiencia.
+
+### Pico de tensión
+Se modeló para representar una contingencia eléctrica breve que puede quedar contenida o escalar a falla. Esto es más correcto que tratar todo incidente eléctrico como corte total inmediato.
+
+---
+
+## 8. Intervención en caliente
+
+La posibilidad de inyectar clima o fallas sin pausar la simulación acerca el comportamiento a una operación real, donde la contingencia aparece mientras el sistema está en marcha.
+
+Esto mejora la calidad del entrenamiento porque el operador debe leer y reaccionar en continuidad temporal.
+
+---
+
+## 9. Escena visual con intención operativa
+
+La nueva escena 2D no se diseñó solo para verse mejor. Se diseñó para reforzar lectura de:
+- estado de cabinas
+- colas de estaciones
+- clima activo
+- diagnósticos rápidos
+
+Eso mejora realismo operativo porque el usuario percibe la jornada como un sistema vivo, no como tablas aisladas.
+
+---
+
+## 10. Por qué no se modelaron pasajeros individuales todavía
 
 Se optó por grupos agregados con decisiones diferidas porque:
-- mantiene costo computacional moderado
+- mantiene costo computacional razonable
+- conserva claridad académica
 - permite colas realistas
-- permite explicación académica clara
-- deja espacio para pasar a un modelo origen-destino más fino después
+- deja espacio para un modelo origen-destino más fino en la siguiente fase
 
-Es un equilibrio entre realismo y complejidad razonable para esta fase.
+Es el equilibrio más correcto entre realismo y complejidad para el estado actual del proyecto.
 
 ---
 
-## 9. Simulacro instantáneo
+## 11. Simulacro completo
 
-El simulacro instantáneo no “inventa” un log prefabricado. Lo que hace es ejecutar la jornada completa en memoria sin esperar el temporizador visual y luego consolidar:
+El simulacro completo no inventa un log prefabricado. Lo que hace es ejecutar la jornada en memoria sin esperar el temporizador visual y luego consolidar:
 - eventos
 - métricas
 - tablas por cabina y estación
+- calibración aplicada
 - conclusiones de la corrida
 
 ---
 
 ## Conclusión
 
-El realismo de esta fase no depende de gráficos complejos, sino de reglas operativas más creíbles:
+El realismo de esta fase se sostiene en reglas operativas más creíbles y más controlables:
 - colas correctas
 - clima con impacto real
-- temporadas
+- desgaste previo a la falla
+- distinción entre pico de tensión y corte total
 - contexto acumulado
-- incidentes no forzados
-- cierre de jornada exportable
+- intervención en caliente
+- visualización alineada con diagnóstico
 
-Eso deja una base muy superior para avanzar a 2D sin perder coherencia estadística.
+Eso deja una base mucho más sólida para una defensa académica fuerte y para la futura persistencia histórica.

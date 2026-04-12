@@ -1,10 +1,10 @@
-# Justificación formal de estructuras de datos
+# Justificación formal de estructuras de datos y contratos de soporte
 
 ## Objetivo de este documento
 
-Este documento explica por qué se eligieron determinadas estructuras manuales para el simulador y por qué son preferibles, en este contexto, a otras alternativas más simples o más genéricas.
+Este documento explica por qué se eligieron determinadas estructuras manuales y por qué ciertos contratos complementarios se consideran la opción más correcta para el contexto del simulador.
 
-La idea no fue “usar estructuras avanzadas por usarlas”, sino elegir las que mejor representan el problema real.
+La idea no fue usar complejidad por apariencia. La selección se hizo porque cada estructura expresa mejor el problema real y deja mejor base para crecer.
 
 ---
 
@@ -17,7 +17,7 @@ Las cabinas de un tramo siguen un comportamiento naturalmente cíclico:
 - recorren el tramo
 - llegan a la estación opuesta
 - cambian de dirección
-- vuelven a repetir el ciclo
+- repiten el ciclo
 
 Eso no es una secuencia lineal simple. Es una operación circular.
 
@@ -33,22 +33,17 @@ Se implementó manualmente:
 
 ## ¿Por qué no un `List<T>`?
 
-Porque aunque una lista lineal sirve para almacenar elementos, no expresa bien la semántica de “siguiente cabina” y “cabina anterior” cuando el problema es cíclico.
+Porque aunque una lista lineal almacena elementos, no expresa bien la semántica de “siguiente cabina” y “cabina anterior” cuando el problema es cíclico.
 
-Con un `List<T>` normalmente hay que manejar índices y hacer wrap-around manual.
+Con `List<T>` habría que resolver wrap-around y vecindad manualmente. Eso agrega lógica accidental y eleva la posibilidad de errores.
 
-Problemas:
-- más lógica accidental
-- más probabilidad de errores
-- la estructura no expresa bien el modelo del dominio
-
-La lista circular sí lo hace.
+La lista circular describe el dominio con menos traducción conceptual.
 
 ---
 
 ## ¿Por qué doblemente enlazada y no solo enlazada?
 
-Porque en la operación real es útil razonar tanto sobre la siguiente como sobre la anterior cabina del ciclo.
+Porque la operación real necesita razonar tanto sobre la siguiente como sobre la anterior cabina del ciclo.
 
 Ventajas:
 - siguiente cabina: O(1)
@@ -61,13 +56,13 @@ Ventajas:
 
 ## Problema del dominio
 
-Aunque Mukumbarí siga una línea principal, conceptualmente el sistema es una red de nodos (estaciones) y aristas (tramos).
+Aunque Mukumbarí siga una línea principal, conceptualmente el sistema es una red de nodos y aristas.
 
 Se necesita poder:
 - consultar conexiones
-- buscar rutas
 - mantener un modelo extensible
 - representar crecimiento futuro
+- defender un diseño correcto de origen-destino
 
 ---
 
@@ -84,24 +79,17 @@ Se implementó `StationNetworkGraph` usando:
 
 Porque una lista de estaciones solo sirve para un mundo estrictamente lineal.
 
-Un grafo permite:
+El grafo permite:
 - ramificaciones futuras
 - rutas alternativas
 - consultas de conectividad
-- caminos mínimos
-
-Es una decisión de escalabilidad correcta.
+- evolución del modelo sin rediseñar la base
 
 ---
 
 ## ¿Por qué dirigido?
 
-Porque la red física tiene sentido operacional por dirección:
-- una estación puede tener salidas y entradas distintas
-- los tramos pueden modelarse con reglas de recorrido explícitas
-- la noción de origen-destino queda mejor representada
-
-Aunque un tramo del escenario actual admita recorrido inverso, el modelo sigue siendo más claro si la dirección forma parte de la estructura.
+Porque la red física tiene sentido operacional por dirección y porque el modelo gana claridad cuando la dirección forma parte explícita de la estructura.
 
 ---
 
@@ -115,7 +103,7 @@ El simulador necesita manejar acciones futuras con prioridad temporal:
 - transferencias rápidas
 - reacciones encadenadas
 
-Cada acción tiene un momento y una prioridad.
+Cada acción tiene momento y prioridad.
 
 ---
 
@@ -127,24 +115,20 @@ Se implementó `BinaryMinHeap<T>`.
 
 ## ¿Por qué no una lista ordenada?
 
-Porque si cada vez que se inserta una acción futura hay que reordenar una lista completa, el costo y la lógica crecen innecesariamente.
+Porque reordenar una lista completa en cada inserción introduce costo innecesario.
 
 Con heap:
 - inserción: O(log n)
 - extracción del mínimo: O(log n)
 - inspección del próximo evento: O(1)
 
-Eso es mucho más adecuado para una cola de prioridad.
+Eso es más correcto para una cola de prioridad temporal.
 
 ---
 
-## ¿Por qué no `PriorityQueue<TElement, TPriority>` de .NET?
+## ¿Por qué no `PriorityQueue<TElement,TPriority>`?
 
-Porque la defensa académica del proyecto exige estructuras manuales y porque una implementación propia permite justificar:
-- el mantenimiento del invariante de heap
-- heapify up
-- heapify down
-- relación directa con el problema
+Porque la defensa académica exige estructuras manuales y porque la implementación propia permite justificar el mantenimiento explícito del invariante de heap.
 
 ---
 
@@ -153,11 +137,11 @@ Porque la defensa académica del proyecto exige estructuras manuales y porque un
 ## Problema del dominio
 
 El simulador necesita retener con facilidad el historial reciente de eventos para:
-- mostrar la narrativa más reciente
+- mostrar narrativa reciente
 - alimentar snapshots
 - preparar futura persistencia rápida
 
-Ese patrón es claramente LIFO en muchos casos de consulta rápida del “último evento relevante”.
+Ese patrón es LIFO cuando lo primero que importa es lo último que ocurrió.
 
 ---
 
@@ -169,14 +153,14 @@ Se implementó `LinkedStack<T>`.
 
 ## ¿Por qué no una lista o cola?
 
-Porque la semántica correcta no es FIFO sino LIFO. Interesa consultar primero lo más reciente.
+Porque la semántica correcta no es FIFO sino LIFO.
 
 Ventajas:
 - `Push`: O(1)
 - `Pop`: O(1)
 - `Peek`: O(1)
 
-Además la implementación enlazada evita depender de redimensionamientos internos de arreglos.
+Además la implementación enlazada evita depender de redimensionamientos internos.
 
 ---
 
@@ -184,9 +168,7 @@ Además la implementación enlazada evita depender de redimensionamientos intern
 
 ## Problema del dominio
 
-El usuario pidió que los acontecimientos no se evaluaran como hechos aislados, sino que una eventualidad nueva tuviera en cuenta lo ya ocurrido durante el día.
-
-Eso requiere una estructura que preserve relaciones y permita navegar contexto acumulado.
+Los acontecimientos no debían evaluarse como hechos aislados. Una eventualidad nueva debía tener en cuenta lo ocurrido durante la jornada.
 
 ---
 
@@ -201,93 +183,167 @@ El árbol guarda:
 - tiempo
 - etiquetas de contexto
 
-Luego calcula una presión causal para posibles cascadas futuras.
+Luego calcula presión causal para cascadas futuras.
 
 ---
 
 ## ¿Por qué un árbol y no solo una lista de eventos?
 
-Una lista solo conserva orden temporal. Un árbol permite organizar el contexto y ponderarlo por:
+Una lista conserva orden temporal, pero no organiza relaciones con suficiente riqueza.
+
+El árbol permite ponderar:
 - profundidad
 - recencia
 - severidad
 - cercanía temática
 
-Eso no convierte al simulador en “IA mágica”, pero sí le da una memoria estructurada del día mucho más útil que una lista plana.
+Eso entrega una memoria contextual más útil que una secuencia plana.
+
+---
+
+## 6. Perfil maestro de riesgo
+
+## Problema del dominio
+
+La nueva interfaz exige calibrar múltiples probabilidades sin convertir la configuración en un conjunto disperso de variables sin relación.
+
+---
+
+## Estructura elegida
+
+Se creó `SimulationRiskTuningProfile`.
+
+Concentra:
+- multiplicador global
+- tormentas
+- vientos fuertes
+- neblina
+- desgaste mecánico
+- falla mecánica de cabina
+- cortes eléctricos
+- picos de tensión
+
+---
+
+## ¿Por qué no guardar parámetros sueltos?
+
+Porque una colección dispersa:
+- complica validación
+- dificulta serialización
+- vuelve confuso el reporte
+- genera duplicación de reglas entre UI y motor
+
+El perfil único es mejor porque encapsula, normaliza y documenta la calibración completa.
+
+---
+
+## 7. `ObservableCollection<T>` para sincronización visual
+
+## Problema del dominio
+
+La UI debe actualizar cabinas, estaciones, eventos y toasts con mínima fricción de binding.
+
+---
+
+## Estructura elegida
+
+Se utilizaron `ObservableCollection<T>` en el ViewModel.
+
+---
+
+## ¿Por qué no reconstruir listas anónimas en cada binding?
+
+Porque eso complica notificaciones, entorpece la lectura del estado y fragmenta la sincronización de la interfaz.
+
+`ObservableCollection<T>` es la opción correcta en WPF cuando la colección forma parte del estado vivo de la aplicación.
+
+---
+
+## 8. `Canvas` lógico fijo con `ViewBox`
+
+## Problema del dominio
+
+La escena debía adaptarse a resoluciones pequeñas sin perder proporción ni control de coordenadas.
+
+---
+
+## Estructura elegida
+
+Se adoptó un `Canvas` con tamaño lógico fijo y un `ViewBox` para escalado proporcional.
+
+---
+
+## ¿Por qué no recalcular toda la geometría por resolución real?
+
+Porque eso aumenta complejidad, vuelve más frágil el layout y complica el dibujo de cabinas, estaciones y overlays.
+
+Con coordenadas lógicas fijas:
+- la escena sigue siendo determinista
+- la adaptación es proporcional
+- el mantenimiento del dibujo es más estable
+
+---
+
+## 9. Contratos de persistencia preparados para MySQL
+
+## Problema del dominio
+
+La base de datos debe incorporarse después sin contaminar el motor ni obligar a reescribir toda la simulación.
+
+---
+
+## Estructura elegida
+
+Se dejaron:
+- interfaces de repositorio
+- settings de base de datos
+- envelope de persistencia de corrida
+
+---
+
+## ¿Por qué no acoplar SQL directo dentro del motor?
+
+Porque mezclar simulación con acceso a datos produce:
+- alta dependencia
+- pruebas más difíciles
+- menor portabilidad
+- mayor probabilidad de romper el núcleo cuando la infraestructura cambie
+
+El contrato desacoplado es la opción correcta porque el motor solo produce información. La infraestructura futura la almacenará.
+
+---
+
+## 10. Bibliotecas especializadas donde sí aportan valor
+
+### ScottPlot para telemetría
+
+Se eligió **ScottPlot** porque resuelve con claridad lo que la UI necesita:
+- series temporales en tiempo real
+- control explícito del eje X
+- bajo costo de integración con WPF
+
+Es mejor que dibujar telemetría manualmente en `Canvas` porque evita reimplementar ejes, escalado y redibujado eficiente.
+
+### QuestPDF para reportes
+
+Se eligió **QuestPDF** porque la exportación documental sí requiere un motor especializado y confiable.
+
+Es mejor que generar PDF artesanalmente porque reduce errores de maquetación y preserva tiempo de ingeniería para el problema real del proyecto.
 
 ---
 
 ## Conclusión general
 
-Las estructuras seleccionadas se justifican por dominio:
+Las estructuras y contratos seleccionados se justifican por dominio y por estabilidad:
 
 - **lista circular**: ciclo operativo de cabinas
-- **grafo**: red de estaciones y tramos
+- **grafo**: red de estaciones y segmentos
 - **heap**: prioridad temporal de acciones e incidentes
 - **pila**: historial reciente LIFO
 - **árbol causal**: memoria estructurada de eventualidades
+- **perfil maestro de riesgo**: calibración coherente y persistible
+- **observable collections**: sincronización limpia de UI
+- **canvas lógico + viewbox**: adaptabilidad estable
+- **contratos MySQL desacoplados**: persistencia futura sin contaminar el motor
 
-Se eligieron porque describen mejor el problema real y porque dejan al proyecto listo para crecer sin romper su base conceptual.
-
----
-
-## 6. Decisiones complementarias de infraestructura
-
-Aunque el núcleo académico del proyecto se resolvió con estructuras manuales, hubo dos necesidades que sí convenía cubrir con bibliotecas especializadas: la telemetría visual y la exportación documental. La decisión fue deliberada: no tiene sentido reimplementar desde cero una librería de gráficas o un motor PDF cuando eso no aporta valor académico directo al problema del teleférico.
-
-### ScottPlot para telemetría
-
-Se eligió **ScottPlot** porque encaja bien con WPF y permite:
-- series temporales en tiempo real
-- actualización frecuente con bajo esfuerzo de integración
-- control explícito del eje X para seguimiento automático de la ventana temporal
-
-#### ¿Por qué no dibujar la telemetría manualmente en un `Canvas`?
-Porque implicaría reimplementar:
-- ejes
-- escalado
-- rotulación
-- paneo
-- redibujado eficiente
-
-Eso aumentaría mucho el trabajo de interfaz sin mejorar el motor ni las estructuras de datos.
-
-#### ¿Por qué no usar una librería más pesada?
-Porque para esta fase solo se necesitaba:
-- series simples
-- lectura clara
-- integración rápida con WPF
-
-ScottPlot cubre eso con menos complejidad accidental.
-
-### QuestPDF para reportes
-
-Se eligió **QuestPDF** para generar el log final en PDF porque permite construir:
-- tablas estructuradas
-- encabezados y pies repetidos
-- secciones narrativas
-- documentos reproducibles desde código
-
-#### ¿Por qué no exportar solo texto plano?
-Porque el usuario pidió reportes formales con:
-- tablas
-- métricas
-- estadística consolidada
-- línea de tiempo entendible
-
-Un PDF estructurado responde mucho mejor a esa necesidad.
-
-#### ¿Por qué no depender de Word o de una exportación manual?
-Porque el reporte se genera automáticamente desde el estado del motor, sin depender de edición humana posterior. Eso vuelve el flujo repetible, trazable y defendible.
-
-### SQLite preparada pero no acoplada todavía
-
-Se dejó la arquitectura lista para SQLite, pero no se acopló la base de datos directamente al motor.
-
-#### ¿Por qué no conectarla ya dentro de `SimulationEngine`?
-Porque eso mezclaría:
-- simulación
-- persistencia
-- detalles de infraestructura
-
-La decisión correcta fue dejar interfaces (`ISimulationSnapshotRepository`, `ISimulationRunRepository`) y una guía privada de integración. Así el motor se mantiene limpio y la conexión futura puede hacerse sin reescribir el núcleo.
+Se eligieron porque describen mejor el problema real y porque dejan al proyecto listo para crecer sin perder coherencia técnica.

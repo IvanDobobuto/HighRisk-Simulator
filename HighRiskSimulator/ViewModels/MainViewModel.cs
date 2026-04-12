@@ -34,7 +34,10 @@ public sealed class MainViewModel : BaseViewModel
     private string _randomSeed = "20260323";
     private bool _isRunning;
     private bool _isBusy;
+    private bool _isOperatorPanelExpanded = true;
     private double _currentRiskValue;
+    private double _manualTimeScale = 1.0;
+    private string _manualTimeScaleText = "1.0x";
     private string _narrativeText = "Sistema listo.";
     private string _operationalStateText = "Listo";
     private string _elapsedText = "00:00";
@@ -51,9 +54,19 @@ public sealed class MainViewModel : BaseViewModel
     private string _pressureModeText = "-";
     private string _simulationDateText = "-";
     private string _operationalVarianceSeedText = "-";
+    private string _stationTelemetrySummaryText = "Sin telemetría de estaciones.";
+    private string _riskCalibrationSummaryText = "Configuración base.";
     private string _exportStatusText = "Sin exportaciones recientes.";
     private string _lastExportPdfPath = string.Empty;
     private string _lastExportJsonPath = string.Empty;
+    private double _globalRiskMultiplier = 1.00;
+    private double _stormProbabilityMultiplier = 1.00;
+    private double _windProbabilityMultiplier = 1.00;
+    private double _fogProbabilityMultiplier = 1.00;
+    private double _mechanicalWearProbabilityMultiplier = 1.00;
+    private double _cabinMechanicalFailureProbabilityMultiplier = 1.00;
+    private double _powerOutageProbabilityMultiplier = 1.00;
+    private double _voltageSpikeProbabilityMultiplier = 1.00;
 
     public MainViewModel()
     {
@@ -68,7 +81,7 @@ public sealed class MainViewModel : BaseViewModel
         SimulationModes = new ObservableCollection<SelectionOption>
         {
             new("random", "Aleatorio inteligente", "Modo no guionizado con comportamiento estocástico realista."),
-            new("scripted", "Escenario específico", "Modo para reproducir incidentes preparados y validar protocolos."),
+            new("scripted", "Escenario específico", "Modo para reproducir incidentes preparados y validar protocolos.")
         };
 
         ScenarioOptions = new ObservableCollection<SelectionOption>(
@@ -78,27 +91,31 @@ public sealed class MainViewModel : BaseViewModel
         PressureModeOptions = new ObservableCollection<SelectionOption>
         {
             new("realistic", "Operación realista", "La mayoría de las jornadas deben poder terminar sin incidentes severos."),
-            new("training", "Entrenamiento intensificado", "Eleva la presión operacional para practicar contingencias."),
+            new("training", "Entrenamiento intensificado", "Eleva la presión operacional para practicar contingencias.")
         };
 
         TimeScaleOptions = new ObservableCollection<SelectionOption>
         {
             new("1", "1x", "Ritmo normal de simulación."),
-            new("2", "2x", "Acelera el avance temporal sin romper la física."),
-            new("3", "3x", "Máxima velocidad interactiva permitida en la interfaz."),
+            new("2", "2x", "Observación acelerada."),
+            new("5", "5x", "Iteración corta sin perder lectura."),
+            new("10", "10x", "Validación rápida de tendencias."),
+            new("20", "20x", "Ensayo acelerado de jornada."),
+            new("50", "50x", "Compresión máxima para cierres instantáneos.")
         };
 
         CabinDensityOptions = new ObservableCollection<SelectionOption>
         {
             new("1", "1 cabina por sentido", "Configuración base alineada al esquema público de operación por tramo."),
             new("2", "2 cabinas por sentido", "Modo académico para estrés moderado y validación de separación."),
-            new("3", "3 cabinas por sentido", "Modo intensivo para pruebas de congestión y capacidad."),
+            new("3", "3 cabinas por sentido", "Modo intensivo para pruebas de congestión y capacidad.")
         };
 
         InjectionTargetOptions = new ObservableCollection<SelectionOption>();
         EventLog = new ObservableCollection<SimulationEvent>();
         CabinStates = new ObservableCollection<CabinSnapshot>();
         StationStates = new ObservableCollection<StationSnapshot>();
+        ToastNotifications = new ObservableCollection<ToastNotification>();
 
         _selectedMode = SimulationModes.First();
         _selectedScenario = ScenarioOptions.First();
@@ -114,12 +131,18 @@ public sealed class MainViewModel : BaseViewModel
         InstantSimulationCommand = new RelayCommand(RunInstantSimulationFromScratchAsync, CanRunInstantSimulation);
         FastForwardAndExportCommand = new RelayCommand(FastForwardCurrentSimulationAndExportAsync, CanFastForwardCurrentSimulation);
         ExportReportCommand = new RelayCommand(ExportCurrentReportAsync, CanExportCurrentReport);
+        ApplyRiskTuningCommand = new RelayCommand(ApplyRiskTuning, CanApplyRiskTuning);
         InjectMechanicalFailureCommand = new RelayCommand(InjectMechanicalFailure, CanInjectCabinTargetedFailure);
         InjectElectricalFailureCommand = new RelayCommand(InjectElectricalFailure, CanInjectGeneralFailure);
         InjectStormCommand = new RelayCommand(InjectStorm, CanInjectGeneralFailure);
+        InjectStrongWindCommand = new RelayCommand(InjectStrongWind, CanInjectGeneralFailure);
+        InjectFogCommand = new RelayCommand(InjectFog, CanInjectGeneralFailure);
+        InjectPulleyWearCommand = new RelayCommand(InjectPulleyWear, CanInjectCabinTargetedFailure);
+        InjectVoltageSpikeCommand = new RelayCommand(InjectVoltageSpike, CanInjectGeneralFailure);
         InjectOverloadCommand = new RelayCommand(InjectOverload, CanInjectCabinTargetedFailure);
         InjectEmergencyStopCommand = new RelayCommand(InjectEmergencyStop, CanInjectGeneralFailure);
 
+        ManualTimeScale = ParseSelectedTimeScale();
         UpdateScenarioDescription();
         ResetSimulation();
     }
@@ -142,6 +165,8 @@ public sealed class MainViewModel : BaseViewModel
 
     public ObservableCollection<StationSnapshot> StationStates { get; }
 
+    public ObservableCollection<ToastNotification> ToastNotifications { get; }
+
     public RelayCommand StartCommand { get; }
 
     public RelayCommand PauseCommand { get; }
@@ -156,11 +181,21 @@ public sealed class MainViewModel : BaseViewModel
 
     public RelayCommand ExportReportCommand { get; }
 
+    public RelayCommand ApplyRiskTuningCommand { get; }
+
     public RelayCommand InjectMechanicalFailureCommand { get; }
 
     public RelayCommand InjectElectricalFailureCommand { get; }
 
     public RelayCommand InjectStormCommand { get; }
+
+    public RelayCommand InjectStrongWindCommand { get; }
+
+    public RelayCommand InjectFogCommand { get; }
+
+    public RelayCommand InjectPulleyWearCommand { get; }
+
+    public RelayCommand InjectVoltageSpikeCommand { get; }
 
     public RelayCommand InjectOverloadCommand { get; }
 
@@ -204,9 +239,9 @@ public sealed class MainViewModel : BaseViewModel
         get => _selectedTimeScale;
         set
         {
-            if (SetProperty(ref _selectedTimeScale, value) && _engine is not null)
+            if (SetProperty(ref _selectedTimeScale, value))
             {
-                _engine.SetTimeScale(ParseSelectedTimeScale());
+                ManualTimeScale = ParseSelectedTimeScale();
             }
         }
     }
@@ -236,6 +271,12 @@ public sealed class MainViewModel : BaseViewModel
     }
 
     public bool IsScriptedMode => SelectedMode.Id == "scripted";
+
+    public bool IsOperatorPanelExpanded
+    {
+        get => _isOperatorPanelExpanded;
+        set => SetProperty(ref _isOperatorPanelExpanded, value);
+    }
 
     public string RandomSeed
     {
@@ -339,6 +380,18 @@ public sealed class MainViewModel : BaseViewModel
         set => SetProperty(ref _operationalVarianceSeedText, value);
     }
 
+    public string StationTelemetrySummaryText
+    {
+        get => _stationTelemetrySummaryText;
+        set => SetProperty(ref _stationTelemetrySummaryText, value);
+    }
+
+    public string RiskCalibrationSummaryText
+    {
+        get => _riskCalibrationSummaryText;
+        set => SetProperty(ref _riskCalibrationSummaryText, value);
+    }
+
     public string ExportStatusText
     {
         get => _exportStatusText;
@@ -363,6 +416,77 @@ public sealed class MainViewModel : BaseViewModel
         set => SetProperty(ref _currentRiskValue, value);
     }
 
+    public double ManualTimeScale
+    {
+        get => _manualTimeScale;
+        set
+        {
+            var clamped = Math.Clamp(value, 1.0, 50.0);
+            if (SetProperty(ref _manualTimeScale, clamped))
+            {
+                ManualTimeScaleText = $"{clamped:F1}x";
+                if (_engine is not null)
+                {
+                    _engine.SetTimeScale(clamped);
+                }
+            }
+        }
+    }
+
+    public string ManualTimeScaleText
+    {
+        get => _manualTimeScaleText;
+        set => SetProperty(ref _manualTimeScaleText, value);
+    }
+
+    public double GlobalRiskMultiplier
+    {
+        get => _globalRiskMultiplier;
+        set => SetProperty(ref _globalRiskMultiplier, value);
+    }
+
+    public double StormProbabilityMultiplier
+    {
+        get => _stormProbabilityMultiplier;
+        set => SetProperty(ref _stormProbabilityMultiplier, value);
+    }
+
+    public double WindProbabilityMultiplier
+    {
+        get => _windProbabilityMultiplier;
+        set => SetProperty(ref _windProbabilityMultiplier, value);
+    }
+
+    public double FogProbabilityMultiplier
+    {
+        get => _fogProbabilityMultiplier;
+        set => SetProperty(ref _fogProbabilityMultiplier, value);
+    }
+
+    public double MechanicalWearProbabilityMultiplier
+    {
+        get => _mechanicalWearProbabilityMultiplier;
+        set => SetProperty(ref _mechanicalWearProbabilityMultiplier, value);
+    }
+
+    public double CabinMechanicalFailureProbabilityMultiplier
+    {
+        get => _cabinMechanicalFailureProbabilityMultiplier;
+        set => SetProperty(ref _cabinMechanicalFailureProbabilityMultiplier, value);
+    }
+
+    public double PowerOutageProbabilityMultiplier
+    {
+        get => _powerOutageProbabilityMultiplier;
+        set => SetProperty(ref _powerOutageProbabilityMultiplier, value);
+    }
+
+    public double VoltageSpikeProbabilityMultiplier
+    {
+        get => _voltageSpikeProbabilityMultiplier;
+        set => SetProperty(ref _voltageSpikeProbabilityMultiplier, value);
+    }
+
     public SimulationSnapshot? LastSnapshot { get; private set; }
 
     private void StartSimulation()
@@ -372,10 +496,11 @@ public sealed class MainViewModel : BaseViewModel
             return;
         }
 
-        _engine.SetTimeScale(ParseSelectedTimeScale());
+        _engine.SetTimeScale(ManualTimeScale);
         _isRunning = true;
         ApplySnapshot(_engine.Start());
         _simulationTimer.Start();
+        PushToast("Simulación iniciada", $"La jornada está ejecutándose a {ManualTimeScaleText}.", "#2563EB", "▶");
         UpdateCommandStates();
     }
 
@@ -389,6 +514,7 @@ public sealed class MainViewModel : BaseViewModel
         _simulationTimer.Stop();
         _isRunning = false;
         ApplySnapshot(_engine.Pause());
+        PushToast("Simulación en pausa", "El estado quedó congelado para revisión operativa.", "#475569", "⏸");
         UpdateCommandStates();
     }
 
@@ -399,7 +525,7 @@ public sealed class MainViewModel : BaseViewModel
             return;
         }
 
-        _engine.SetTimeScale(ParseSelectedTimeScale());
+        _engine.SetTimeScale(ManualTimeScale);
         var snapshot = _engine.Step();
         if (_engine.OperationalState is not (SystemOperationalState.EmergencyStop or SystemOperationalState.Completed))
         {
@@ -420,12 +546,14 @@ public sealed class MainViewModel : BaseViewModel
         _simulationTimer.Stop();
         _isRunning = false;
         _engine = _sessionService.CreateEngine(BuildSessionRequest());
-        _engine.SetTimeScale(ParseSelectedTimeScale());
+        _engine.SetTimeScale(ManualTimeScale);
         _lastRunReport = null;
         LastExportPdfPath = string.Empty;
         LastExportJsonPath = string.Empty;
         ExportStatusText = "Sin exportaciones recientes.";
+        LoadRiskTuningProfile(_engine.Options.RiskTuning);
         ApplySnapshot(_engine.CurrentSnapshot);
+        PushToast("Sesión reiniciada", "Se reconstruyó la jornada con la configuración actual.", "#0F766E", "↺");
         UpdateCommandStates();
     }
 
@@ -443,7 +571,7 @@ public sealed class MainViewModel : BaseViewModel
         try
         {
             var engine = _sessionService.CreateEngine(BuildSessionRequest());
-            engine.SetTimeScale(ParseSelectedTimeScale());
+            engine.SetTimeScale(ManualTimeScale);
 
             var executionResult = await Task.Run(() =>
             {
@@ -456,6 +584,7 @@ public sealed class MainViewModel : BaseViewModel
             _engine = executionResult.Engine;
             ApplySnapshot(executionResult.Snapshot);
             ApplyExportArtifacts(executionResult.Report, executionResult.Artifacts, "Se ejecutó un simulacro instantáneo desde cero y se generó el reporte.");
+            PushToast("Simulacro completado", "La jornada completa se ejecutó y se exportaron sus artefactos.", "#7C3AED", "⚡");
         }
         catch (Exception exception)
         {
@@ -481,7 +610,7 @@ public sealed class MainViewModel : BaseViewModel
         try
         {
             var engine = _engine;
-            engine.SetTimeScale(ParseSelectedTimeScale());
+            engine.SetTimeScale(ManualTimeScale);
 
             var executionResult = await Task.Run(() =>
             {
@@ -496,6 +625,7 @@ public sealed class MainViewModel : BaseViewModel
 
             ApplySnapshot(executionResult.Snapshot);
             ApplyExportArtifacts(executionResult.Report, executionResult.Artifacts, "Se aceleró la jornada actual hasta su cierre y se generó el reporte.");
+            PushToast("Cierre acelerado", "La corrida actual fue completada y exportada.", "#1D4ED8", "⇢");
         }
         catch (Exception exception)
         {
@@ -528,6 +658,7 @@ public sealed class MainViewModel : BaseViewModel
             });
 
             ApplyExportArtifacts(exportResult.Report, exportResult.Artifacts, "Se exportó el reporte de la corrida actual.");
+            PushToast("Reporte exportado", "Los artefactos PDF y JSON quedaron listos.", "#0F766E", "⬇");
         }
         catch (Exception exception)
         {
@@ -537,6 +668,21 @@ public sealed class MainViewModel : BaseViewModel
         {
             SetBusyState(false);
         }
+    }
+
+    private void ApplyRiskTuning()
+    {
+        if (_isBusy || _engine is null)
+        {
+            return;
+        }
+
+        var profile = BuildRiskTuningProfile();
+        _engine.ApplyRiskTuning(profile);
+        RiskCalibrationSummaryText = profile.ToSummaryText();
+        PushToast("Riesgo recalibrado", "La nueva matriz de probabilidades quedó aplicada en caliente.", "#DC2626", "⚙");
+        ApplySnapshot(_engine.CurrentSnapshot);
+        UpdateCommandStates();
     }
 
     private void InjectMechanicalFailure()
@@ -553,6 +699,7 @@ public sealed class MainViewModel : BaseViewModel
         }
 
         ApplySnapshot(_engine.InjectMechanicalFailure(cabinId.Value));
+        PushToast("Falla mecánica", "Se forzó una desviación mecánica sobre la cabina seleccionada.", "#EA580C", "⚠");
         UpdateCommandStates();
     }
 
@@ -568,6 +715,7 @@ public sealed class MainViewModel : BaseViewModel
             : ResolveSelectedCabinId();
 
         ApplySnapshot(_engine.InjectElectricalFailure(cabinId));
+        PushToast("Falla eléctrica", "Se inyectó una contingencia eléctrica sin detener la simulación.", "#D97706", "⚡");
         UpdateCommandStates();
     }
 
@@ -579,6 +727,65 @@ public sealed class MainViewModel : BaseViewModel
         }
 
         ApplySnapshot(_engine.InjectStorm());
+        PushToast("Tormenta", "El entorno pasó a condición de tormenta de altura.", "#7C3AED", "☈");
+        UpdateCommandStates();
+    }
+
+    private void InjectStrongWind()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        ApplySnapshot(_engine.InjectStrongWind());
+        PushToast("Viento fuerte", "Se activó una ráfaga intensa sobre la línea.", "#2563EB", "🡹");
+        UpdateCommandStates();
+    }
+
+    private void InjectFog()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        ApplySnapshot(_engine.InjectFog());
+        PushToast("Neblina", "La visibilidad fue degradada para validar lectura operativa.", "#64748B", "◌");
+        UpdateCommandStates();
+    }
+
+    private void InjectPulleyWear()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        var cabinId = ResolveSelectedCabinId();
+        if (cabinId is null)
+        {
+            return;
+        }
+
+        ApplySnapshot(_engine.InjectPulleyWear(cabinId.Value));
+        PushToast("Desgaste acelerado", "Se aplicó una degradación puntual de rodadura y frenado.", "#B45309", "⌁");
+        UpdateCommandStates();
+    }
+
+    private void InjectVoltageSpike()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        var cabinId = SelectedInjectionTarget.Id == "system"
+            ? null
+            : ResolveSelectedCabinId();
+
+        ApplySnapshot(_engine.InjectVoltageSpike(cabinId));
+        PushToast("Pico de tensión", "El transitorio eléctrico quedó registrado en telemetría.", "#9333EA", "ϟ");
         UpdateCommandStates();
     }
 
@@ -596,6 +803,7 @@ public sealed class MainViewModel : BaseViewModel
         }
 
         ApplySnapshot(_engine.InjectOverload(cabinId.Value));
+        PushToast("Sobrecarga", "Se elevó la ocupación de la cabina seleccionada.", "#DC2626", "⬤");
         UpdateCommandStates();
     }
 
@@ -609,6 +817,7 @@ public sealed class MainViewModel : BaseViewModel
         _simulationTimer.Stop();
         _isRunning = false;
         ApplySnapshot(_engine.InjectEmergencyStop());
+        PushToast("Parada de emergencia", "El sistema ejecutó frenado total y cambió a estado de emergencia.", "#991B1B", "■");
         UpdateCommandStates();
     }
 
@@ -623,6 +832,13 @@ public sealed class MainViewModel : BaseViewModel
             {
                 _simulationTimer.Stop();
                 _isRunning = false;
+                PushToast(
+                    _engine.OperationalState == SystemOperationalState.Completed ? "Jornada completada" : "Jornada detenida",
+                    _engine.OperationalState == SystemOperationalState.Completed
+                        ? "La simulación llegó al final del servicio."
+                        : "La jornada terminó por protocolo de emergencia.",
+                    _engine.OperationalState == SystemOperationalState.Completed ? "#0F766E" : "#991B1B",
+                    _engine.OperationalState == SystemOperationalState.Completed ? "✓" : "■");
                 UpdateCommandStates();
             }
         }
@@ -631,6 +847,7 @@ public sealed class MainViewModel : BaseViewModel
             _simulationTimer.Stop();
             _isRunning = false;
             ExportStatusText = $"La simulación se detuvo por un error: {exception.Message}";
+            PushToast("Error de ejecución", exception.Message, "#991B1B", "!");
             UpdateCommandStates();
         }
     }
@@ -646,8 +863,43 @@ public sealed class MainViewModel : BaseViewModel
             PressureMode = SelectedPressureMode.Id == "training"
                 ? SimulationPressureMode.IntensifiedTraining
                 : SimulationPressureMode.Realistic,
-            CabinsPerDirectionPerSegment = ParseSelectedCabinDensity()
+            CabinsPerDirectionPerSegment = ParseSelectedCabinDensity(),
+            RiskTuning = BuildRiskTuningProfile()
         };
+    }
+
+    private SimulationRiskTuningProfile BuildRiskTuningProfile()
+    {
+        var profile = new SimulationRiskTuningProfile
+        {
+            GlobalRiskMultiplier = GlobalRiskMultiplier,
+            StormProbabilityMultiplier = StormProbabilityMultiplier,
+            WindProbabilityMultiplier = WindProbabilityMultiplier,
+            FogProbabilityMultiplier = FogProbabilityMultiplier,
+            MechanicalWearProbabilityMultiplier = MechanicalWearProbabilityMultiplier,
+            CabinMechanicalFailureProbabilityMultiplier = CabinMechanicalFailureProbabilityMultiplier,
+            PowerOutageProbabilityMultiplier = PowerOutageProbabilityMultiplier,
+            VoltageSpikeProbabilityMultiplier = VoltageSpikeProbabilityMultiplier
+        };
+
+        profile.Normalize();
+        return profile;
+    }
+
+    private void LoadRiskTuningProfile(SimulationRiskTuningProfile? profile)
+    {
+        var effective = profile?.Clone() ?? new SimulationRiskTuningProfile();
+        effective.Normalize();
+
+        GlobalRiskMultiplier = effective.GlobalRiskMultiplier;
+        StormProbabilityMultiplier = effective.StormProbabilityMultiplier;
+        WindProbabilityMultiplier = effective.WindProbabilityMultiplier;
+        FogProbabilityMultiplier = effective.FogProbabilityMultiplier;
+        MechanicalWearProbabilityMultiplier = effective.MechanicalWearProbabilityMultiplier;
+        CabinMechanicalFailureProbabilityMultiplier = effective.CabinMechanicalFailureProbabilityMultiplier;
+        PowerOutageProbabilityMultiplier = effective.PowerOutageProbabilityMultiplier;
+        VoltageSpikeProbabilityMultiplier = effective.VoltageSpikeProbabilityMultiplier;
+        RiskCalibrationSummaryText = effective.ToSummaryText();
     }
 
     private int ParseSeed()
@@ -716,6 +968,7 @@ public sealed class MainViewModel : BaseViewModel
         PressureModeText = snapshot.PressureModeDisplay;
         SimulationDateText = snapshot.SimulationDate.ToString("yyyy-MM-dd");
         OperationalVarianceSeedText = snapshot.OperationalVarianceSeed.ToString();
+        StationTelemetrySummaryText = BuildStationTelemetrySummary(snapshot.Stations);
 
         SynchronizeCollection(EventLog, snapshot.RecentEvents);
         SynchronizeCollection(CabinStates, snapshot.Cabins);
@@ -724,6 +977,23 @@ public sealed class MainViewModel : BaseViewModel
 
         SnapshotUpdated?.Invoke(this, snapshot);
         UpdateCommandStates();
+    }
+
+    private static string BuildStationTelemetrySummary(IReadOnlyList<StationSnapshot> stations)
+    {
+        if (stations.Count == 0)
+        {
+            return "Sin telemetría de estaciones.";
+        }
+
+        var ascending = stations.Sum(station => station.WaitingAscendingPassengers);
+        var descending = stations.Sum(station => station.WaitingDescendingPassengers);
+        var peakStation = stations
+            .OrderByDescending(station => station.TotalWaitingPassengers)
+            .ThenBy(station => station.Id)
+            .First();
+
+        return $"Ascenso {ascending} pax | Descenso {descending} pax | Mayor presión: {peakStation.Name} ({peakStation.TotalWaitingPassengers} pax).";
     }
 
     private void RefreshInjectionTargets(SimulationSnapshot snapshot)
@@ -764,7 +1034,32 @@ public sealed class MainViewModel : BaseViewModel
         _lastRunReport = report;
         LastExportPdfPath = artifacts.PdfPath;
         LastExportJsonPath = artifacts.JsonPath;
+        RiskCalibrationSummaryText = report.RiskCalibrationSummary;
         ExportStatusText = $"{contextMessage} PDF: {artifacts.PdfPath} | JSON: {artifacts.JsonPath}";
+    }
+
+    private void PushToast(string title, string message, string accentColor, string iconGlyph)
+    {
+        var notification = new ToastNotification(title, message, accentColor, iconGlyph);
+        ToastNotifications.Insert(0, notification);
+
+        while (ToastNotifications.Count > 4)
+        {
+            ToastNotifications.RemoveAt(ToastNotifications.Count - 1);
+        }
+
+        var expirationTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3.8)
+        };
+
+        expirationTimer.Tick += (_, _) =>
+        {
+            expirationTimer.Stop();
+            ToastNotifications.Remove(notification);
+        };
+
+        expirationTimer.Start();
     }
 
     private void SetBusyState(bool isBusy, string? statusMessage = null)
@@ -788,9 +1083,14 @@ public sealed class MainViewModel : BaseViewModel
         InstantSimulationCommand.RaiseCanExecuteChanged();
         FastForwardAndExportCommand.RaiseCanExecuteChanged();
         ExportReportCommand.RaiseCanExecuteChanged();
+        ApplyRiskTuningCommand.RaiseCanExecuteChanged();
         InjectMechanicalFailureCommand.RaiseCanExecuteChanged();
         InjectElectricalFailureCommand.RaiseCanExecuteChanged();
         InjectStormCommand.RaiseCanExecuteChanged();
+        InjectStrongWindCommand.RaiseCanExecuteChanged();
+        InjectFogCommand.RaiseCanExecuteChanged();
+        InjectPulleyWearCommand.RaiseCanExecuteChanged();
+        InjectVoltageSpikeCommand.RaiseCanExecuteChanged();
         InjectOverloadCommand.RaiseCanExecuteChanged();
         InjectEmergencyStopCommand.RaiseCanExecuteChanged();
     }
@@ -830,10 +1130,14 @@ public sealed class MainViewModel : BaseViewModel
         return !_isBusy && !_isRunning && LastSnapshot is not null;
     }
 
+    private bool CanApplyRiskTuning()
+    {
+        return !_isBusy && LastSnapshot is not null && _engine.OperationalState is not SystemOperationalState.EmergencyStop;
+    }
+
     private bool CanInjectCabinTargetedFailure()
     {
         return !_isBusy
-            && !_isRunning
             && LastSnapshot is not null
             && _engine.OperationalState is not (SystemOperationalState.EmergencyStop or SystemOperationalState.Completed)
             && ResolveSelectedCabinId() is not null;
@@ -842,7 +1146,6 @@ public sealed class MainViewModel : BaseViewModel
     private bool CanInjectGeneralFailure()
     {
         return !_isBusy
-            && !_isRunning
             && LastSnapshot is not null
             && _engine.OperationalState is not (SystemOperationalState.EmergencyStop or SystemOperationalState.Completed);
     }
