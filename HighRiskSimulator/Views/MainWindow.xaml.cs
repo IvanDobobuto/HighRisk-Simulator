@@ -683,23 +683,27 @@ public partial class MainWindow : Window
 
     private void DrawSceneHud(SimulationSnapshot snapshot)
     {
-        var riskPanel = CreateHudCard(28, 26, 292, 112, "Resumen de riesgo");
+        // 1. PANEL DE RIESGO 
+        var riskPanel = CreateHudCard(28, 26, 360, 160, "Resumen de riesgo");
         RouteCanvas.Children.Add(riskPanel);
-        AddHudText(48, 58, $"Estado: {snapshot.OperationalStateDisplay}", 12.5, FontWeights.SemiBold);
-        AddHudText(48, 82, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 12, FontWeights.Normal);
-        AddHudText(48, 104, $"Eventos activos: {snapshot.ActiveCriticalIssues}", 12, FontWeights.Normal);
+        AddHudText(48, 75, $"Estado: {snapshot.OperationalStateDisplay}", 25, FontWeights.SemiBold);
+        AddHudText(48, 110, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 25, FontWeights.Normal);
+        AddHudText(48, 140, $"Eventos activos: {snapshot.ActiveCriticalIssues}", 25, FontWeights.Normal);
 
-        var weatherPanel = CreateHudCard(SceneWidth - 350, 26, 322, 112, "Ambiente y visualización");
+        /*/ 2. PANEL DE CLIMA
+        var weatherPanel = CreateHudCard(SceneWidth - 390, 26, 360, 180, "Ambiente y visualización");
         RouteCanvas.Children.Add(weatherPanel);
-        AddHudText(SceneWidth - 330, 58, snapshot.WeatherSummary, 12.5, FontWeights.SemiBold);
-        AddHudText(SceneWidth - 330, 82, $"Visibilidad: {snapshot.VisibilityPercent:F1}%", 12, FontWeights.Normal);
-        AddHudText(SceneWidth - 330, 104, $"Engelamiento: {snapshot.IcingRiskPercent:F1}%", 12, FontWeights.Normal);
+        AddHudText(SceneWidth - 370, 68, snapshot.WeatherSummary, 25, FontWeights.SemiBold);
+        AddHudText(SceneWidth - 370, 100, $"Visibilidad: {snapshot.VisibilityPercent:F1}%", 25, FontWeights.Normal);
+        AddHudText(SceneWidth - 370, 128, $"Engelamiento: {snapshot.IcingRiskPercent:F1}%", 25, FontWeights.Normal);
+        */
 
-        var legendPanel = CreateHudCard(SceneWidth - 380, SceneHeight - 150, 350, 116, "Diagnóstico rápido");
+        // 3. LEYENDA
+        var legendPanel = CreateHudCard(SceneWidth - 450, SceneHeight - 250, 420, 220, "Diagnóstico rápido");
         RouteCanvas.Children.Add(legendPanel);
-        AddLegendChip(SceneWidth - 362, SceneHeight - 118, "⚙ Falla mecánica", Color.FromRgb(234, 88, 12));
-        AddLegendChip(SceneWidth - 362, SceneHeight - 94, "⚡ Falla eléctrica", Color.FromRgb(147, 51, 234));
-        AddLegendChip(SceneWidth - 362, SceneHeight - 70, "■ Frenado / parada", Color.FromRgb(220, 38, 38));
+        AddLegendChip(SceneWidth - 435, SceneHeight - 195, "⚙ Falla mecánica", Color.FromRgb(234, 88, 12));
+        AddLegendChip(SceneWidth - 435, SceneHeight - 140, "⚡ Falla eléctrica", Color.FromRgb(147, 51, 234));
+        AddLegendChip(SceneWidth - 435, SceneHeight - 85, "■ Frenado / parada", Color.FromRgb(220, 38, 38));
     }
 
     private Border CreateHudCard(double x, double y, double width, double height, string title)
@@ -708,7 +712,7 @@ public partial class MainWindow : Window
         {
             Text = title,
             Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
-            FontSize = 13,
+            FontSize = 27,
             FontWeight = FontWeights.Bold,
             Margin = new Thickness(14, 10, 14, 0)
         };
@@ -753,14 +757,14 @@ public partial class MainWindow : Window
         {
             Background = new SolidColorBrush(Color.FromArgb(215, 30, 41, 59)),
             BorderBrush = new SolidColorBrush(accent),
-            BorderThickness = new Thickness(1),
+            BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(8, 4, 8, 4),
+            Padding = new Thickness(12, 6, 12, 6),
             Child = new TextBlock
             {
                 Text = text,
                 Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
-                FontSize = 11.5,
+                FontSize = 25,
                 FontWeight = FontWeights.SemiBold
             }
         };
