@@ -414,7 +414,7 @@
         </Grid>
 
         <!-- PESTAÑAS INFERIORES -->
-        <TabControl Grid.Row="2" Margin="0,10,0,0" VerticalAlignment="Stretch" Background="Aqua" >
+        <TabControl Grid.Row="2" Margin="0,10,0,0" VerticalAlignment="Stretch" Background="White" >
             <TabItem Header="Eventos">
                 <Border Padding="12" Background="White">
                     <DataGrid ItemsSource="{Binding EventLog}" Style="{StaticResource SceneDataGridStyle}" Height="199">
