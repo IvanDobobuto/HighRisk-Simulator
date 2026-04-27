@@ -18,13 +18,13 @@ El simulador actúa como un gemelo digital funcional que permite:
 -  **HMI (Interfaz):** Diseño optimizado en zonas (Control, Escena, Analítica) con panel colapsable, sandbox 2D escalable y notificaciones no intrusivas.
 - **Telemetría y Datos:** Gráficos en tiempo real con ScottPlot y exportación de reportes técnicos a PDF y JSON.
 
-# 📦 Instalación y Ejecución
+# Instalación y Ejecución
 **Compatibilidad:** Este simulador utiliza WPF, por lo que es exclusivo para Windows 10/11. No es compatible nativamente con Linux o macOS.
 
-## 🚀 Método rápido (Usuario)
+## Método rápido (Usuario)
 Si solo deseas probar el simulador sin configurar el entorno de desarrollo ve al apartado de [Releases](https://github.com/IvanDobobuto/HighRisk-Simulator/releases) en este repositorio, descarga la última versión disponible (archivo .zip), descomprime el contenido en una carpeta local y ejecuta el archivo llamado HighRiskSimulator.exe.
 
-## 💻 Compilación con Visual Studio
+## Compilación con Visual Studio
 1.	Clona el repositorio:
 ```bash
 git clone https://github.com/IvanDobobuto/HighRisk-Simulator
@@ -34,7 +34,7 @@ git clone https://github.com/IvanDobobuto/HighRisk-Simulator
 4.  Visual Studio restaurará automáticamente los paquetes de ScottPlot y QuestPDF.
 5.  Presiona F5 para compilar y lanzar la aplicación.
 
-## 🛠️ Compilación vía CLI
+## Compilación vía CLI
 1.	Instalar el SDK: Asegúrate de tener instalado el [.NET 8.0 SDK.](https://dotnet.microsoft.com/download/dotnet/8.0)
 2.	Clona y accede a el repositorio:
 ```bash
@@ -49,7 +49,7 @@ dotnet restore
 ```bash
 dotnet run --project HighRiskSimulator
 ```
-# 📚Dependencias
+# Dependencias
 El simulador utiliza un stack moderno de .NET enfocado en alto rendimiento y visualización de datos:
 - **.NET 8.0 WPF:** Framework base para la interfaz de usuario y el motor de ejecución.
 - **ScottPlot.WPF:** Motor de telemetría de alto desempeño para el renderizado de gráficos en tiempo real.
@@ -92,7 +92,7 @@ HighRisk-Simulator/
 ```
 
 ---
-# 📜Licencia y Uso
+# Licencia y Uso
 Este proyecto se distribuye bajo la Licencia MIT. Eres libre de usar, modificar y distribuir el código, siempre que se mantenga el reconocimiento de la autoría original.
 
 - Uso de QuestPDF: Este proyecto utiliza la Community License de QuestPDF. Para fines académicos y proyectos de código abierto, el uso es gratuito. El cumplimiento de esta licencia ya está integrado en el código fuente.
