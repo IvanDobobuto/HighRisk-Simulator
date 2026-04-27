@@ -1,102 +1,59 @@
 # HighRisk Simulator
+>Sistema de Apoyo a la Decisión (DSS) y Modelado Estocástico
 
-Simulador estadístico-operativo del teleférico Mukumbarí construido sobre **.NET 8 + WPF**, rediseñado para entregar una jornada más realista, una interfaz mucho más clara y una base sólida para persistencia futura en **MySQL**.
+Simulador estadístico-operativo del teleférico Mukumbarí construido sobre **.NET 8 + WPF**, rediseñado para entregar una jornada más realista, una interfaz mucho más clara y una base sólida. Esta aplicación esta desarollada en C#, con ScottPlot.WPF para telemetria temporal y QuestPDF para reporte multipáginas como dependencias.
 
-La iteración actual consolida:
+La operación en alta montaña es inherentemente volátil. Los cambios climáticos abruptos, los picos de demanda y la fatiga de componentes eléctricos/mecánicos generan un escenario de toma de decisiones crítico. Probar cambios en la velocidad de despacho o protocolos de emergencia directamente en la infraestructura real es inviable por razones de seguridad y presupuesto.
 
-- motor por ticks con **delta time escalable de 1x a 50x**
-- **múltiples cabinas por tramo** configurables
-- **panel de operador colapsable** para centralizar controles y no saturar la escena
-- **sandbox visual 2D** escalable con `ViewBox` y `Canvas` lógico fijo
-- **telemetría constante de estaciones** con colas de ascenso y descenso visibles
-- **sistema de notificaciones tipo toast** para confirmar acciones sin tapar la simulación
-- **panel maestro de riesgos** con multiplicador global y sintonía fina por categoría
-- **inyección de fallas en caliente** sin necesidad de pausar la corrida
-- clima enriquecido con **tormenta, vientos fuertes, neblina y nieve**
-- eventos adicionales de **desgaste mecánico** y **picos de tensión**
-- **sprites 2D funcionales** para cabinas, estaciones, alertas y estados de frenado
-- telemetría temporal con **ScottPlot**
-- exportación estructurada a **PDF y JSON**
-- contratos listos para futura persistencia histórica en **MySQL**
+El simulador actúa como un gemelo digital funcional que permite:
 
-La prioridad de esta versión fue elevar la calidad de la experiencia completa: mejor lectura, mejor control, más realismo, más trazabilidad y más argumentos técnicos para justificar cada decisión del proyecto.
+- **Validación de Protocolos**: Evaluar la seguridad operativa ante vientos racheados, tormentas y visibilidad nula.
+- **Análisis de Resiliencia**: Inyectar fallas críticas en caliente (picos de tensión, desgaste mecánico) para medir tiempos de respuesta y recuperación.
+- **Optimización de Flujo:** Predecir y mitigar cuellos de botella en estaciones mediante el análisis de colas y telemetría en tiempo real.
 
----
+# Características
+- **Motor de Simulación:** Arquitectura basada en ticks con Delta Time escalable (1x-50x). Gestión de cabinas mediante listas circulares doblemente enlazadas y modelado de tramos con grafos.
+- **Gestión de Riesgos:** Panel maestro para calibrar eventos estocásticos (fallas mecánicas, cortes eléctricos y picos de tensión) e inyección de fallas en caliente.
+- **Simulador Climático:** Modelo dinámico de tormentas, vientos racheados, neblina y nieve con impacto en la seguridad operativa.
+-  **HMI (Interfaz):** Diseño optimizado en zonas (Control, Escena, Analítica) con panel colapsable, sandbox 2D escalable y notificaciones no intrusivas.
+- **Telemetría y Datos:** Gráficos en tiempo real con ScottPlot y exportación de reportes técnicos a PDF y JSON.
 
-## Estado actual del proyecto
+# 📦 Instalación y Ejecución
+**Compatibilidad:** Este simulador utiliza WPF, por lo que es exclusivo para Windows 10/11. No es compatible nativamente con Linux o macOS.
 
-### Núcleo funcional consolidado
-- Motor principal con tiempo fijo por ticks y escalamiento hasta **50x**.
-- Base física y lógica de movimiento para cabinas por tramo.
-- Modelo dirigido de estaciones y segmentos usando **grafo manual**.
-- Gestión cíclica de cabinas con **lista circular doblemente enlazada**.
-- Configuración de **múltiples cabinas por sentido y por tramo**.
-- Sistema de eventos aleatorios, guionizados y forzados en tiempo real.
-- Exportación completa de reportes en **PDF** y **JSON**.
+## 🚀 Método rápido (Usuario)
+Si solo deseas probar el simulador sin configurar el entorno de desarrollo ve al apartado de [Releases](https://github.com/IvanDobobuto/HighRisk-Simulator/releases) en este repositorio, descarga la última versión disponible (archivo .zip), descomprime el contenido en una carpeta local y ejecuta el archivo llamado HighRiskSimulator.exe.
 
-### UI/UX consolidada
-- Encabezado orientado a lectura rápida del estado actual.
-- **Panel lateral colapsable** con controles agrupados por responsabilidad.
-- Escena principal tipo sandbox con cabinas, estaciones, clima, diagnósticos y colas.
-- Telemetría visible de estaciones sin tener que cambiar de pestaña.
-- Controles de tiempo con presets y ajuste manual continuo.
-- Quick-triggers para intervención operativa sin interrumpir la simulación.
-- Confirmaciones no intrusivas mediante **toasts**.
+## 💻 Compilación con Visual Studio
+1.	Clona el repositorio:
+```bash
+git clone https://github.com/IvanDobobuto/HighRisk-Simulator
+```
+2.	Abre el archivo de solución .sln o el proyecto .csproj con Visual Studio 2022.
+3.  Asegúrate de tener instalada la carga de trabajo "Desarrollo de escritorio de .NET".
+4.  Visual Studio restaurará automáticamente los paquetes de ScottPlot y QuestPDF.
+5.  Presiona F5 para compilar y lanzar la aplicación.
 
-### Base analítica y de persistencia preparada
-- Reporte de corrida con resumen de calibración de riesgo.
-- Contratos desacoplados para snapshots y reportes históricos.
-- Documento privado y contratos listos para futura integración con **MySQL**.
-
----
-
-## Qué cambió respecto a la iteración anterior
-
-### 1) La interfaz dejó de competir contra el usuario
-Se eliminó la sensación de desorden reorganizando la operación en tres zonas claras:
-- control maestro lateral
-- escena visual central
-- panel analítico y telemétrico lateral
-
-La decisión mejora lectura, reduce fricción y permite que el usuario sepa desde el primer minuto dónde configurar, dónde observar y dónde diagnosticar.
-
-### 2) El tiempo ya no limita las pruebas académicas
-Ahora el simulador puede acelerarse hasta **50x** y además permite ajuste manual continuo. Esto sirve para:
-- recorrer jornadas largas rápidamente
-- validar estabilidad del motor
-- comparar resultados sin esperar una ejecución lenta
-
-### 3) El riesgo ahora se puede calibrar de forma explícita
-La corrida dejó de depender solo de presión global. Ahora existe un perfil maestro con:
-- multiplicador global
-- tormentas
-- vientos fuertes
-- neblina
-- desgaste mecánico
-- falla mecánica de cabina
-- cortes eléctricos
-- picos de tensión
-
-Esto permite construir escenarios académicos muy específicos sin romper el motor ni duplicar lógica.
-
-### 4) La escena visual ya no es solo decorativa
-La vista principal ahora representa:
-- estaciones detalladas
-- cableado visual
-- cabinas con estados diferenciados
-- indicadores rápidos de fallas
-- colas por estación
-- superposiciones de clima
-
-La escena está diseñada para reforzar lectura operacional, no para distraer.
-
-### 5) La persistencia futura dejó de ser abstracta
-La arquitectura ya no se queda en “algún día se conectará una base”. Ahora existe una base contractual concreta para **MySQL**, con documentación privada de integración y lineamientos de esquema para guardar:
-- corridas
-- snapshots
-- eventos
-- telemetría
-- calibraciones
+## 🛠️ Compilación vía CLI
+1.	Instalar el SDK: Asegúrate de tener instalado el [.NET 8.0 SDK.](https://dotnet.microsoft.com/download/dotnet/8.0)
+2.	Clona y accede a el repositorio:
+```bash
+git clone https://github.com/IvanDobobuto/HighRisk-Simulator
+cd HighRisk-Simulator
+```
+3.	Restaurar dependencias:
+```bash
+dotnet restore
+```
+4.	Ejecutar directamente:
+```bash
+dotnet run --project HighRiskSimulator
+```
+# 📚Dependencias
+El simulador utiliza un stack moderno de .NET enfocado en alto rendimiento y visualización de datos:
+- **.NET 8.0 WPF:** Framework base para la interfaz de usuario y el motor de ejecución.
+- **ScottPlot.WPF:** Motor de telemetría de alto desempeño para el renderizado de gráficos en tiempo real.
+- **QuestPDF:** Motor de maquetación para la generación de reportes técnicos detallados.
 
 ---
 
@@ -135,118 +92,21 @@ HighRisk-Simulator/
 ```
 
 ---
+# 📜Licencia y Uso
+Este proyecto se distribuye bajo la Licencia MIT. Eres libre de usar, modificar y distribuir el código, siempre que se mantenga el reconocimiento de la autoría original.
 
-## Decisiones académicas principales
+- Uso de QuestPDF: Este proyecto utiliza la Community License de QuestPDF. Para fines académicos y proyectos de código abierto, el uso es gratuito. El cumplimiento de esta licencia ya está integrado en el código fuente.
 
-### Lista circular doblemente enlazada
-Se usa porque la operación de cabinas por tramo es cíclica. La estructura expresa mejor la relación **siguiente / anterior** que una colección lineal.
-
-### Grafo dirigido
-Se usa porque el sistema es una red de estaciones y segmentos. Aunque Mukumbarí sea lineal en esta etapa, el modelo queda listo para crecer sin rediseñar la base.
-
-### Heap mínimo manual
-Se usa para gestionar acciones futuras con prioridad temporal:
-- incidentes programados
-- retornos diferidos
-- transferencias internas
-- contingencias encadenadas
-
-### Pila enlazada manual
-Se usa para el historial reciente de eventos con acceso **LIFO**, adecuado para UI, narrativa y trazabilidad rápida.
-
-### Árbol causal interno
-Se eligió porque permite conservar memoria contextual de la jornada y usarla para modular cascadas de riesgo.
-
-### Perfil maestro de calibración
-Se encapsuló en `SimulationRiskTuningProfile` para concentrar la configuración del riesgo en un único contrato coherente. Esta decisión es mejor que distribuir sliders y multiplicadores sueltos porque evita dispersión, simplifica serialización y deja lista la persistencia de calibraciones.
-
-### Sandbox visual con `Canvas` + `ViewBox`
-Se eligió esta combinación en lugar de un motor gráfico externo porque:
-- conserva estabilidad en WPF
-- reduce dependencias y superficie de fallo
-- permite resolución lógica fija y escalado proporcional
-- mantiene el motor académico separado de la capa visual
-
-### Preparación para MySQL en lugar de acoplar SQL al motor
-Se dejaron contratos y settings desacoplados para que la base de datos futura no contamine la lógica de simulación. El motor produce snapshots y reportes; la infraestructura persistente será responsable de almacenarlos.
+# Créditos
+Desarrollado como parte del currículo de la asignación programación 3 en el semestre A2026 de la facultad de Ingeniería de Sistemas en la Universidad de los Andes (ULA).
+Equipo de desarrollo: 
+- José Guillermo Quintero Devera
+- Ivan Dobobuto
+- Roni Vicic
 
 ---
 
-## Qué muestra la interfaz actual
-
-### Encabezado
-- estado operacional
-- tiempo simulado
-- riesgo agregado
-- narrativa actual de la jornada
-
-### Panel lateral de operador
-- modo de simulación
-- escenario
-- fecha simulada
-- presión operacional
-- densidad de cabinas
-- velocidad por preset y control manual
-- calibración completa de riesgos
-- quick-triggers operativos
-- controles de ejecución y exportación
-
-### Centro visual
-- estaciones con colas por sentido
-- escena sandbox con cableado, entorno y cabinas
-- estados visuales de cabina
-- indicadores rápidos de falla
-- superposición de clima
-
-### Lateral analítico
-- ficha operativa de jornada
-- gráfica histórica de telemetría
-- salida de exportación y trazabilidad
-
-### Pestañas inferiores
-- **Eventos**
-- **Cabinas**
-- **Estaciones**
-
----
-
-## Cómo ejecutar el proyecto
-
-### Requisitos
-- **.NET 8 SDK**
-- Visual Studio con workload **.NET desktop development**
-
-### Pasos
-1. Abrir `HighRiskSimulator.sln`.
-2. Restaurar paquetes NuGet.
-3. Establecer `HighRiskSimulator` como proyecto de inicio.
-4. Ejecutar con `F5`.
-
-### Pruebas
-Desde la raíz de la solución:
-
-```bash
-dotnet test
-```
-
----
-
-## Dependencias relevantes
-
-### En uso ahora
-- **ScottPlot.WPF** para telemetría temporal.
-- **QuestPDF** para reporte multipágina.
-
-### Deliberadamente no integradas en esta fase
-- motores de juego 2D externos
-- frameworks de física ajenos al núcleo WPF
-- acceso directo a MySQL desde la capa de simulación
-
-La decisión fue priorizar control, estabilidad y justificación académica antes que complejidad ornamental.
-
----
-
-## Documentación del proyecto
+# Documentación del proyecto
 
 - `Docs/Architecture.md` - organización por capas y justificación de la arquitectura.
 - `Docs/DataStructuresJustification.md` - defensa formal de estructuras y contratos seleccionados.
