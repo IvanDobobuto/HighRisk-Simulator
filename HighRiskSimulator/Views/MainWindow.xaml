@@ -23,6 +23,109 @@
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="Padding" Value="16"/>
             </Style>
+            
+        
+
+        
+        <SolidColorBrush x:Key="TitleBrush" Color="White"/>
+        <SolidColorBrush x:Key="MutedTextBrush" Color="#94A3B8"/>
+        <!-- Gris azulado suave -->
+
+        <!-- Estilo de la Tarjeta Toast (Modernizado) -->
+        <Style x:Key="ToastCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#E60F172A"/>
+            <!-- Fondo oscuro semi-transparente -->
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <!-- Acento lateral grueso -->
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="15,12"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Width" Value="300"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                <DropShadowEffect BlurRadius="15" ShadowDepth="2" Opacity="0.5"/>
+                    </Setter.Value>
+            </Setter>
+        </Style>
+
+
+        <!-- 1. Encabezados de Columna (Grises azulados, minimalistas) -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Padding" Value="10,8,10,8"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="#1E293B"/>
+            <!-- Línea sutil debajo del título -->
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+
+        <!-- 2. Celdas Individuales (Transparentes, forzando el color de texto a blanco/gris claro) -->
+        <Style TargetType="DataGridCell">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <!-- Este Foreground es crucial para DataGridTextColumn -->
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border Background="{TemplateBinding Background}" 
+                            BorderBrush="Transparent" 
+                            BorderThickness="0" 
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 3. Filas completas (Fondo transparente, hover neón) -->
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1A38BDF8"/>
+                    <!-- Azul neón al 10% opacidad -->
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#3338BDF8"/>
+                    <!-- Azul neón al 20% opacidad -->
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 4. Contenedor Principal DataGrid -->
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="RowBackground" Value="Transparent"/>
+            <Setter Property="AlternatingRowBackground" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+        </Style>
+
+        <!-- 5. Forzar color en todos los TextBlocks dentro del DataGrid (La bala de plata) -->
+        <Style TargetType="TextBlock" x:Key="DataGridTextBlockStyle">
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
 
         <Style TargetType="{x:Type ScrollBar}">
             <Setter Property="Width" Value="8"/>
@@ -112,7 +215,27 @@
         <Storyboard x:Key="CloseLeftPanel">
             <DoubleAnimation Storyboard.TargetName="LeftPanel" 
                              Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" 
-                             To="-360" Duration="0:0:0.2">
+                             To="-500" Duration="0:0:0.2">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseIn"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- Animaciones para el Panel de Probabilidades -->
+        <Storyboard x:Key="OpenProbabilityPanel">
+            <DoubleAnimation Storyboard.TargetName="ProbabilityPanel" 
+                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" 
+                             To="0" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+        <Storyboard x:Key="CloseProbabilityPanel">
+            <DoubleAnimation Storyboard.TargetName="ProbabilityPanel" 
+                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" 
+                             To="-500" Duration="0:0:0.2">
                 <DoubleAnimation.EasingFunction>
                     <QuadraticEase EasingMode="EaseIn"/>
                 </DoubleAnimation.EasingFunction>
@@ -131,7 +254,7 @@
         <Storyboard x:Key="CloseRightPanel">
             <DoubleAnimation Storyboard.TargetName="RightPanel" 
                              Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" 
-                             To="380" Duration="0:0:0.2">
+                             To="500" Duration="0:0:0.2">
                 <DoubleAnimation.EasingFunction>
                     <QuadraticEase EasingMode="EaseIn"/>
                 </DoubleAnimation.EasingFunction>
@@ -165,9 +288,13 @@
             </StackPanel>
         </Border>
 
-        <Grid HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="20,85,0,160">
-                <ToggleButton x:Name="BtnLeftMenu" Width="48" Height="48" VerticalAlignment="Top" HorizontalAlignment="Left" Panel.ZIndex="50" 
-                          Background="#1E293B" Foreground="White" BorderBrush="#38BDF8" Content="⚙">
+        <!-- CAPA 2: PANELES LATERALES IZQUIERDOS (Z-Index: 50) -->
+        <Grid HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="20,80,0,50" Panel.ZIndex="50">
+
+            <!-- BARRA DE HERRAMIENTAS LATERAL -->
+            <StackPanel Width="48" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="60">
+                <!-- Botón Inyección -->
+                <ToggleButton x:Name="BtnLeftMenu" Checked="BtnLeftMenu_Checked" Width="48" Height="48" Background="#1E293B" Foreground="White" BorderBrush="#38BDF8" Content="⚡" ToolTip="Quick-Trigger">
                     <ToggleButton.Triggers>
                         <EventTrigger RoutedEvent="ToggleButton.Checked">
                             <BeginStoryboard Storyboard="{StaticResource OpenLeftPanel}"/>
@@ -178,20 +305,54 @@
                     </ToggleButton.Triggers>
                 </ToggleButton>
 
-            <Border x:Name="LeftPanel" Width="340" Style="{StaticResource GamePanelStyle}" Margin="10,60,0,0" HorizontalAlignment="Left">
-                    <Border.RenderTransform>
-                        <TranslateTransform X="-360"/>
-                    </Border.RenderTransform>
-                    <ScrollViewer VerticalScrollBarVisibility="Hidden">
-                        <StackPanel>
-                            <TextBlock Text="CONFIGURACIÓN DE SESIÓN" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,12"/>
-                            <ComboBox ItemsSource="{Binding SimulationModes}" SelectedItem="{Binding SelectedMode}" Margin="0,0,0,10"/>
+                <!-- Botón Probabilidades -->
+                <ToggleButton x:Name="BtnProbMenu" Checked="BtnProbMenu_Checked" Width="48" Height="48" Margin="0,10,0,0" Background="#1E293B" Foreground="White" BorderBrush="#8B5CF6" Content="🎲" ToolTip="Motor de Probabilidades">
+                    <ToggleButton.Triggers>
+                        <EventTrigger RoutedEvent="ToggleButton.Checked">
+                            <BeginStoryboard Storyboard="{StaticResource OpenProbabilityPanel}"/>
+                        </EventTrigger>
+                        <EventTrigger RoutedEvent="ToggleButton.Unchecked">
+                            <BeginStoryboard Storyboard="{StaticResource CloseProbabilityPanel}"/>
+                        </EventTrigger>
+                    </ToggleButton.Triggers>
+                </ToggleButton>
+            </StackPanel>
 
-                            <TextBlock Text="ACELERACIÓN DE TIEMPO" FontWeight="Bold" Foreground="#94A3B8" Margin="0,15,0,12"/>
-                            <Slider Minimum="1" Maximum="50" Value="{Binding ManualTimeScale, Mode=TwoWay}"/>
+            <!-- PANEL 1: INYECCIÓN DE RIESGOS  -->
+            <Border x:Name="LeftPanel" Width="340" Style="{StaticResource GamePanelStyle}" Margin="60,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" >
+                <Border.RenderTransform>
+                    <TranslateTransform X="-450"/>
+                </Border.RenderTransform>
+                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                    <StackPanel>
+                        <TextBlock Text="CONFIGURACIÓN DE SESIÓN" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,12"/>
+                        <ComboBox ItemsSource="{Binding SimulationModes}" SelectedItem="{Binding SelectedMode}" Margin="0,0,0,10"/>
 
-                            <TextBlock Text="INYECCIÓN" FontWeight="Bold" Foreground="#94A3B8" Margin="0,20,0,12"/>
-             
+                        <TextBlock Text="ACELERACIÓN DE TIEMPO" FontWeight="Bold" Foreground="#64748B" FontSize="10"/>
+                        <Grid Margin="0,5,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="1" Maximum="50" TickFrequency="1" IsSnapToTickEnabled="False" Value="{Binding ManualTimeScale, Mode=TwoWay}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ManualTimeScaleText, StringFormat={}{0:N0}}" FontWeight="Bold" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- FLUJO DE PASAJEROS (NUEVO SLIDER) -->
+                        <TextBlock Text="TASA DE LLEGADA DE PASAJEROS" FontWeight="Bold" Foreground="#64748B" FontSize="10"/>
+                        <Grid Margin="0,5,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="200" Value="{Binding PassengerArrivalRate}" TickFrequency="10" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding PassengerArrivalRate, StringFormat={}{0} pax/h}" FontSize="11" FontWeight="Bold" Foreground="#22C55E" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Separator Background="#334155" Margin="0,5,0,15"/>
+
+                        <TextBlock Text="INYECCIÓN" FontWeight="Bold" Foreground="#94A3B8" Margin="0,20,0,12"/>
+
                         <UniformGrid Columns="2">
                             <Button Content="Tormenta" Command="{Binding InjectStormCommand}" Margin="0,0,4,4" Height="35" ToolTip="Simula tormenta eléctrica"/>
                             <Button Content="Viento" Command="{Binding InjectStrongWindCommand}" Margin="4,0,0,4" Height="35" ToolTip="Inyecta ráfagas de viento fuerte"/>
@@ -199,7 +360,7 @@
 
                             <Button Content="Falla Eléctrica." Command="{Binding InjectElectricalFailureCommand}" Margin="4,0,0,4" Height="35" Background="#B45309" Foreground="White"/>
                             <Button Content="Pico de Tensión" Command="{Binding InjectVoltageSpikeCommand}" Margin="0,0,4,4" Height="35" Background="#92400E" Foreground="White"/>
-                            <Button Content="Desgaste" Command="{Binding InjectWearTearCommand}" Margin="4,0,0,4" Height="35" Background="#475569" Foreground="White" ToolTip="Acelera degradación de poleas"/>
+                            <Button Content="Desgaste" Command="{Binding InjectPulleyWearCommand}" Margin="4,0,0,4" Height="35" Background="#475569" Foreground="White" ToolTip="Acelera degradación de poleas"/>
 
                             <Button Content="Sobrecarga" Command="{Binding InjectOverloadCommand}" Margin="0,0,4,4" Height="35" Background="#991B1B" Foreground="White"/>
                             <Button Content="Falla Mecanica." Command="{Binding InjectMechanicalFailureCommand}" Margin="4,0,0,4" Height="35" Background="#7F1D1D" Foreground="White"/>
@@ -207,11 +368,115 @@
                             <Button Content="Emergencia" Command="{Binding InjectEmergencyStopCommand}" Margin="0,4,0,0" Height="40" Background="#DC2626" Foreground="White" FontWeight="Black" Grid.ColumnSpan="2"/>
                         </UniformGrid>
                     </StackPanel>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
+                </ScrollViewer>
+            </Border>
 
-            <Grid HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,80,20,160">
+            <!-- PANEL 2: MOTOR DE PROBABILIDADES (NUEVO) -->
+            <Border x:Name="ProbabilityPanel" Width="340" Style="{StaticResource GamePanelStyle}" Margin="60,60,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" MaxHeight="400">
+                <Border.RenderTransform>
+                    <TranslateTransform X="-450"/>
+                </Border.RenderTransform>
+                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                    <StackPanel>
+                        <TextBlock Text="CONFIGURACIÓN DE RIESGOS" FontWeight="Black" Foreground="#94A3B8" Margin="0,0,0,15"/>
+
+                        <!-- RIESGO GLOBAL -->
+                        <Border Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,0,0,20" BorderBrush="#8B5CF6" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="MULTIPLICADOR GLOBAL DE RIESGO" FontWeight="Bold" Foreground="#A78BFA" FontSize="10"/>
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="45"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Minimum="0" Maximum="5" Value="{Binding GlobalRiskMultiplier}" TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding GlobalRiskMultiplier, StringFormat={}{0:F1}x}" FontWeight="Black" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- PROBABILIDADES AMBIENTALES -->
+                        <TextBlock Text="VARIABLES AMBIENTALES" FontWeight="Bold" Foreground="#64748B" FontSize="10" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Tormenta" FontSize="11" Foreground="#CBD5E1"/>
+                        <Grid Margin="0,2,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="45"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding StormProbabilityMultiplier}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding StormProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#38BDF8" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="Ráfagas de Viento" FontSize="11" Foreground="#CBD5E1"/>
+                        <Grid Margin="0,2,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="45"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding WindProbabilityMultiplier}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding WindProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#38BDF8" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="Neblina Densa" FontSize="11" Foreground="#CBD5E1"/>
+                        <Grid Margin="0,2,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="45"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding FogProbabilityMultiplier}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding FogProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#38BDF8" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <!-- PROBABILIDADES TÉCNICAS -->
+                        <TextBlock Text="VARIABLES DE SISTEMA" FontWeight="Bold" Foreground="#64748B" FontSize="10" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Fallas Eléctricas" FontSize="11" Foreground="#CBD5E1"/>
+                        <Grid Margin="0,2,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="45"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding PowerOutageProbabilityMultiplier}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding PowerOutageProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#F59E0B" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="Picos de tensión" FontSize="11" Foreground="#CBD5E1"/>
+                        <Grid Margin="0,2,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="45"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding VoltageSpikeProbabilityMultiplier}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding VoltageSpikeProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#F59E0B" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="Fallas Mecánicas" FontSize="11" Foreground="#CBD5E1"/>
+                        <Grid Margin="0,2,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="45"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding CabinMechanicalFailureProbabilityMultiplier}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding CabinMechanicalFailureProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#DC2626" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="Desgaste" FontSize="11" Foreground="#CBD5E1"/>
+                        <Grid Margin="0,2,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="45"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding MechanicalWearProbabilityMultiplier}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding MechanicalWearProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#DC2626" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Grid HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,80,20,160">
                 <ToggleButton x:Name="BtnRightMenu" Width="48" Height="48" VerticalAlignment="Top" HorizontalAlignment="Right" Panel.ZIndex="50" 
                           Background="#1E293B" Foreground="White" BorderBrush="#38BDF8" Content="📊">
                     <ToggleButton.Triggers>
@@ -282,12 +547,12 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border Background="{Binding SeverityBrush}" CornerRadius="4" Padding="6,2">
-                                                <TextBlock Text="{Binding SeverityDisplay}" FontSize="10" FontWeight="Bold" Foreground="Black"   HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding SeverityDisplay}" FontSize="10" FontWeight="Bold" Foreground="#94A3B8"   HorizontalAlignment="Center"/>
                                             </Border>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Tipo" Binding="{Binding Type}" Width="120"/>
+                                <DataGridTextColumn Header="Tipo" Binding="{Binding Type}" Width="120" />
                                 <DataGridTextColumn Header="Título" Binding="{Binding Title}" Width="*" FontWeight="Bold"/>
                                 <DataGridTextColumn Header="Fuente" Binding="{Binding Source}" Width="140"/>
                                 <DataGridTextColumn Header="Δ Riesgo" Binding="{Binding RiskDelta, StringFormat={}{0:F2}}" Width="80"/>
@@ -298,13 +563,13 @@
                     <TabItem Header="Cabinas" Style="{StaticResource LogTabItemStyle}">
                         <DataGrid ItemsSource="{Binding CabinStates}" AutoGenerateColumns="False" Background="Transparent" BorderThickness="0">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="ID" Binding="{Binding Code}" Width="60" FontWeight="Bold"/>
+                                <DataGridTextColumn Header="ID" Binding="{Binding Code}" Width="70" FontWeight="Bold"/>
                                 <DataGridTextColumn Header="Posición" Binding="{Binding SegmentName, StringFormat={}{0:N0} m}" Width="110"/>
                                 <DataGridTemplateColumn Header="Ocupación"  Width="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Grid>
-                                                <TextBlock Text="{Binding CompactOccupancyLabel, StringFormat={}{0}%}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Black" FontWeight="Bold"/>
+                                                <TextBlock Text="{Binding CompactOccupancyLabel, StringFormat={}{0}%}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#94A3B8" FontWeight="Bold"/>
                                             </Grid>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -321,7 +586,7 @@
                         <DataGrid ItemsSource="{Binding StationStates}" AutoGenerateColumns="False" Background="Transparent" BorderThickness="0">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Estación" Binding="{Binding Name}" Width="180" FontWeight="Bold"/>
-                                <DataGridTextColumn Header="Pax en espera" Binding="{Binding TotalWaitingPassengers}" Width="120" Foreground="Black"/>
+                                <DataGridTextColumn Header="Pax en espera" Binding="{Binding TotalWaitingPassengers}" Width="120" Foreground="#E2E8F0"/>
                                 <DataGridTextColumn Header="Altitud" Binding="{Binding AltitudeMeters, StringFormat={}{0:F0} m}" Width="90"/>
                                 <DataGridTextColumn Header="Ascenso" Binding="{Binding WaitingAscendingPassengers}" Width="90"/>
                                 <DataGridTextColumn Header="Descenso" Binding="{Binding WaitingDescendingPassengers}" Width="95"/>
@@ -333,6 +598,71 @@
                 </TabControl>
             </Grid>
         </Border>
+
+        <ItemsControl ItemsSource="{Binding ToastNotifications}" 
+              Grid.Row="0" Grid.RowSpan="3" 
+              HorizontalAlignment="Right" VerticalAlignment="Top" 
+              Margin="0,94,10,0" MaxHeight="700" 
+              ClipToBounds="True" Panel.ZIndex="100">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <!-- Border con el acento dinámico (AccentColor) -->
+                    <Border x:Name="ToastBorder" 
+                    Style="{StaticResource ToastCardStyle}" 
+                    BorderBrush="{Binding AccentColor}">
+
+                        <StackPanel>
+                            <DockPanel>
+                                <!-- Icono con el color del acento -->
+                                <TextBlock Text="{Binding IconGlyph}" 
+                                   FontSize="16" FontWeight="Bold" 
+                                   Foreground="{Binding AccentColor}" 
+                                   Margin="0,0,10,0"/>
+
+                                <TextBlock Text="{Binding Title}" 
+                                   FontWeight="Black" FontSize="11"
+                                   Foreground="{StaticResource TitleBrush}" 
+                                   VerticalAlignment="Center"/>
+                            </DockPanel>
+
+                            <TextBlock Text="{Binding Message}" 
+                               Margin="0,6,0,0" 
+                               TextWrapping="Wrap" 
+                               FontSize="11"
+                               Foreground="{StaticResource MutedTextBrush}" 
+                               Opacity="0.9"/>
+                        </StackPanel>
+
+                        <!-- Animación de "Slide and Fade" al cargar -->
+                        <Border.RenderTransform>
+                            <TranslateTransform X="350"/>
+                        </Border.RenderTransform>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                 To="0" Duration="0:0:0.4">
+                                            <DoubleAnimation.EasingFunction>
+                                                <QuadraticEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0" To="1" Duration="0:0:0.3"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
     </Grid>
     </Window>

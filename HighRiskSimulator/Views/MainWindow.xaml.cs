@@ -65,6 +65,24 @@ public partial class MainWindow : Window
         UpdateTelemetryPlot(snapshot.Telemetry);
     }
 
+    private void BtnLeftMenu_Checked(object sender, RoutedEventArgs e)
+    {
+        // Si abro el menú izquierdo, apago el de probabilidades
+        if (BtnProbMenu != null && BtnProbMenu.IsChecked == true)
+        {
+            BtnProbMenu.IsChecked = false;
+        }
+    }
+
+    private void BtnProbMenu_Checked(object sender, RoutedEventArgs e)
+    {
+        // Si abro el menú de probabilidades, apago el izquierdo
+        if (BtnLeftMenu != null && BtnLeftMenu.IsChecked == true)
+        {
+            BtnLeftMenu.IsChecked = false;
+        }
+    }
+
     private void UpdateTelemetryPlot(TelemetrySnapshot telemetry)
     {
         MetricsPlot.Plot.Clear();
@@ -678,7 +696,7 @@ public partial class MainWindow : Window
         var riskPanel = CreateHudCard(128, 26, 360, 160, "Resumen de riesgo");
         RouteCanvas.Children.Add(riskPanel);
         AddHudText(148, 75, $"Estado: {snapshot.OperationalStateDisplay}", 25, FontWeights.SemiBold);
-        AddHudText(148, 110, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 25, FontWeights.Normal);
+        AddHudText(148, 108, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 25, FontWeights.Normal);
         AddHudText(148, 140, $"Eventos activos: {snapshot.ActiveCriticalIssues}", 25, FontWeights.Normal);
 
         /*/ 2. PANEL DE CLIMA
@@ -690,7 +708,7 @@ public partial class MainWindow : Window
         */
 
         // 3. LEYENDA
-        var legendPanel = CreateHudCard(SceneWidth - 450, SceneHeight - 370, 420, 220, "Diagnóstico rápido");
+        var legendPanel = CreateHudCard(SceneWidth - 450, SceneHeight - 375, 420, 220, "Diagnóstico rápido");
         RouteCanvas.Children.Add(legendPanel);
         AddLegendChip(SceneWidth - 435, SceneHeight - 320, "⚙ Falla mecánica", Color.FromRgb(234, 88, 12));
         AddLegendChip(SceneWidth - 435, SceneHeight - 264, "⚡ Falla eléctrica", Color.FromRgb(147, 51, 234));
@@ -741,6 +759,7 @@ public partial class MainWindow : Window
         Canvas.SetTop(block, y);
         RouteCanvas.Children.Add(block);
     }
+
 
     private void AddLegendChip(double x, double y, string text, Color accent)
     {
