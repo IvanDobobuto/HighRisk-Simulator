@@ -2,6 +2,8 @@
 [Bb]in/
 [Oo]bj/
 out/
+publish/
+artifacts/
 
 # Visual Studio
 .vs/
@@ -23,13 +25,17 @@ packages/
 *.tmp
 *.cache
 
-# Test results
+# Test results and coverage
 TestResults/
+*.trx
+coverage/
+coverage.*
 
 # OS files
 .DS_Store
 Thumbs.db
 
 # SQLite runtime data
+*.db
 *.db-shm
 *.db-wal

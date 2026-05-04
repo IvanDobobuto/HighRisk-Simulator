@@ -1,15 +1,19 @@
+using System;
 using System.Windows.Input;
 
 namespace HighRiskSimulator.Helpers;
 
-public class RelayCommand : ICommand
+/// <summary>
+/// Implementación simple de ICommand para esta interfaz WPF.
+/// </summary>
+public sealed class RelayCommand : ICommand
 {
     private readonly Action _execute;
     private readonly Func<bool>? _canExecute;
 
     public RelayCommand(Action execute, Func<bool>? canExecute = null)
     {
-        _execute = execute;
+        _execute = execute ?? throw new ArgumentNullException(nameof(execute));
         _canExecute = canExecute;
     }
 
@@ -17,7 +21,7 @@ public class RelayCommand : ICommand
 
     public bool CanExecute(object? parameter)
     {
-        return _canExecute == null || _canExecute();
+        return _canExecute?.Invoke() ?? true;
     }
 
     public void Execute(object? parameter)
