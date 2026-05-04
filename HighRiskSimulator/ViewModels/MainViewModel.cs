@@ -216,6 +216,8 @@ public sealed class MainViewModel : BaseViewModel
         }
     }
 
+
+
     public SelectionOption SelectedScenario
     {
         get => _selectedScenario;
@@ -731,6 +733,8 @@ public sealed class MainViewModel : BaseViewModel
         UpdateCommandStates();
     }
 
+
+
     private void InjectStrongWind()
     {
         if (_isBusy)
@@ -901,6 +905,7 @@ public sealed class MainViewModel : BaseViewModel
         VoltageSpikeProbabilityMultiplier = effective.VoltageSpikeProbabilityMultiplier;
         RiskCalibrationSummaryText = effective.ToSummaryText();
     }
+
 
     private int ParseSeed()
     {
