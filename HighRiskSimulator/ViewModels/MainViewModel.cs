@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Threading;
@@ -38,6 +40,10 @@ public sealed class MainViewModel : BaseViewModel
     private double _currentRiskValue;
     private double _manualTimeScale = 1.0;
     private string _manualTimeScaleText = "1.0x";
+    private double _serviceDurationHours = 10.0;
+    private string _serviceDurationHoursText = "10 h";
+    private double _passengerArrivalMultiplier = 1.0;
+    private string _passengerArrivalMultiplierText = "1.0x";
     private string _narrativeText = "Sistema listo.";
     private string _operationalStateText = "Listo";
     private string _elapsedText = "00:00";
@@ -441,6 +447,46 @@ public sealed class MainViewModel : BaseViewModel
         set => SetProperty(ref _manualTimeScaleText, value);
     }
 
+    public double ServiceDurationHours
+    {
+        get => _serviceDurationHours;
+        set
+        {
+            var clamped = Math.Clamp(value, 10.0, 16.0);
+            if (SetProperty(ref _serviceDurationHours, clamped))
+            {
+                ServiceDurationHoursText = $"{clamped:F0} h";
+                _engine?.SetServiceDurationHours(clamped);
+            }
+        }
+    }
+
+    public string ServiceDurationHoursText
+    {
+        get => _serviceDurationHoursText;
+        set => SetProperty(ref _serviceDurationHoursText, value);
+    }
+
+    public double PassengerArrivalMultiplier
+    {
+        get => _passengerArrivalMultiplier;
+        set
+        {
+            var clamped = Math.Clamp(value, 0.25, 3.0);
+            if (SetProperty(ref _passengerArrivalMultiplier, clamped))
+            {
+                PassengerArrivalMultiplierText = $"{clamped:F1}x";
+                _engine?.SetDemandMultiplier(clamped);
+            }
+        }
+    }
+
+    public string PassengerArrivalMultiplierText
+    {
+        get => _passengerArrivalMultiplierText;
+        set => SetProperty(ref _passengerArrivalMultiplierText, value);
+    }
+
     public double GlobalRiskMultiplier
     {
         get => _globalRiskMultiplier;
@@ -549,6 +595,7 @@ public sealed class MainViewModel : BaseViewModel
         _isRunning = false;
         _engine = _sessionService.CreateEngine(BuildSessionRequest());
         _engine.SetTimeScale(ManualTimeScale);
+        _engine.SetDemandMultiplier(PassengerArrivalMultiplier);
         _lastRunReport = null;
         LastExportPdfPath = string.Empty;
         LastExportJsonPath = string.Empty;
@@ -574,6 +621,7 @@ public sealed class MainViewModel : BaseViewModel
         {
             var engine = _sessionService.CreateEngine(BuildSessionRequest());
             engine.SetTimeScale(ManualTimeScale);
+            engine.SetDemandMultiplier(PassengerArrivalMultiplier);
 
             var executionResult = await Task.Run(() =>
             {
@@ -586,6 +634,7 @@ public sealed class MainViewModel : BaseViewModel
             _engine = executionResult.Engine;
             ApplySnapshot(executionResult.Snapshot);
             ApplyExportArtifacts(executionResult.Report, executionResult.Artifacts, "Se ejecutó un simulacro instantáneo desde cero y se generó el reporte.");
+            OpenExportDirectory(executionResult.Artifacts.PdfPath);
             PushToast("Simulacro completado", "La jornada completa se ejecutó y se exportaron sus artefactos.", "#7C3AED", "⚡");
         }
         catch (Exception exception)
@@ -613,6 +662,7 @@ public sealed class MainViewModel : BaseViewModel
         {
             var engine = _engine;
             engine.SetTimeScale(ManualTimeScale);
+            engine.SetDemandMultiplier(PassengerArrivalMultiplier);
 
             var executionResult = await Task.Run(() =>
             {
@@ -627,6 +677,7 @@ public sealed class MainViewModel : BaseViewModel
 
             ApplySnapshot(executionResult.Snapshot);
             ApplyExportArtifacts(executionResult.Report, executionResult.Artifacts, "Se aceleró la jornada actual hasta su cierre y se generó el reporte.");
+            OpenExportDirectory(executionResult.Artifacts.PdfPath);
             PushToast("Cierre acelerado", "La corrida actual fue completada y exportada.", "#1D4ED8", "⇢");
         }
         catch (Exception exception)
@@ -660,11 +711,141 @@ public sealed class MainViewModel : BaseViewModel
             });
 
             ApplyExportArtifacts(exportResult.Report, exportResult.Artifacts, "Se exportó el reporte de la corrida actual.");
+            OpenExportDirectory(exportResult.Artifacts.PdfPath);
             PushToast("Reporte exportado", "Los artefactos PDF y JSON quedaron listos.", "#0F766E", "⬇");
         }
         catch (Exception exception)
         {
             ExportStatusText = $"No se pudo exportar el reporte: {exception.Message}";
+        }
+        finally
+        {
+            SetBusyState(false);
+        }
+    }
+
+    public async Task<ExportedSimulationArtifacts?> ExportSingleDayReportAsync()
+    {
+        if (_isBusy)
+        {
+            return null;
+        }
+
+        _simulationTimer.Stop();
+        _isRunning = false;
+        SetBusyState(true, "Preparando reporte de un día...");
+
+        try
+        {
+            var request = BuildSessionRequest();
+            var timeScale = ManualTimeScale;
+            var demandMultiplier = PassengerArrivalMultiplier;
+
+            var executionResult = await Task.Run(() =>
+            {
+                var engine = _sessionService.CreateEngine(request);
+                engine.SetTimeScale(Math.Max(timeScale, 20.0));
+                engine.SetDemandMultiplier(demandMultiplier);
+                var snapshot = engine.RunToEndOfService();
+                var report = engine.CreateRunReport();
+                var artifacts = _reportExportService.Export(report);
+                return (Engine: engine, Snapshot: snapshot, Report: report, Artifacts: artifacts);
+            });
+
+            _engine = executionResult.Engine;
+            ApplySnapshot(executionResult.Snapshot);
+            ApplyExportArtifacts(executionResult.Report, executionResult.Artifacts, "Se generó el reporte del día seleccionado.");
+            OpenExportDirectory(executionResult.Artifacts.PdfPath);
+            PushToast("Reporte listo", "Se exportó el PDF y el JSON del día simulado.", "#0F766E", "⬇");
+            return executionResult.Artifacts;
+        }
+        catch (Exception exception)
+        {
+            ExportStatusText = $"No se pudo exportar el reporte diario: {exception.Message}";
+            PushToast("Error de reporte", exception.Message, "#991B1B", "!");
+            return null;
+        }
+        finally
+        {
+            SetBusyState(false);
+        }
+    }
+
+    public async Task<ExportedSimulationArtifacts?> ExportDateRangeReportAsync(DateTime startDate, DateTime endDate)
+    {
+        if (_isBusy)
+        {
+            return null;
+        }
+
+        if (endDate.Date < startDate.Date)
+        {
+            (startDate, endDate) = (endDate.Date, startDate.Date);
+        }
+
+        var dates = Enumerable.Range(0, (endDate.Date - startDate.Date).Days + 1)
+            .Select(offset => startDate.Date.AddDays(offset))
+            .ToArray();
+
+        _simulationTimer.Stop();
+        _isRunning = false;
+        SetBusyState(true, dates.Length == 1
+            ? "Simulando el día seleccionado para reporte..."
+            : $"Simulando lote de {dates.Length} días para reporte...");
+
+        try
+        {
+            var requestTemplate = BuildSessionRequest();
+            var timeScale = ManualTimeScale;
+            var demandMultiplier = PassengerArrivalMultiplier;
+
+            var executionResult = await Task.Run(() =>
+            {
+                var reports = new List<SimulationRunReport>();
+                SimulationEngine? lastEngine = null;
+                SimulationSnapshot? lastSnapshot = null;
+
+                foreach (var simulationDate in dates)
+                {
+                    var request = CloneSessionRequestForDate(requestTemplate, simulationDate);
+                    var engine = _sessionService.CreateEngine(request);
+                    engine.SetTimeScale(Math.Max(timeScale, 20.0));
+                    engine.SetDemandMultiplier(demandMultiplier);
+                    lastSnapshot = engine.RunToEndOfService();
+                    reports.Add(engine.CreateRunReport());
+                    lastEngine = engine;
+                }
+
+                var artifacts = reports.Count == 1
+                    ? _reportExportService.Export(reports[0])
+                    : _reportExportService.ExportBatch(reports);
+
+                return (Reports: reports, LastEngine: lastEngine!, LastSnapshot: lastSnapshot!, Artifacts: artifacts);
+            });
+
+            _engine = executionResult.LastEngine;
+            ApplySnapshot(executionResult.LastSnapshot);
+
+            var lastReport = executionResult.Reports.Last();
+            _lastRunReport = lastReport;
+            LastExportPdfPath = executionResult.Artifacts.PdfPath;
+            LastExportJsonPath = executionResult.Artifacts.JsonPath;
+            RiskCalibrationSummaryText = lastReport.RiskCalibrationSummary;
+            ExportStatusText = executionResult.Reports.Count == 1
+                ? $"Reporte diario generado. PDF: {executionResult.Artifacts.PdfPath} | JSON: {executionResult.Artifacts.JsonPath}"
+                : $"Reporte por lotes generado ({executionResult.Reports.Count} días). PDF: {executionResult.Artifacts.PdfPath} | JSON: {executionResult.Artifacts.JsonPath}";
+
+            OpenExportDirectory(executionResult.Artifacts.PdfPath);
+            PushToast("Reporte listo", executionResult.Reports.Count == 1
+                ? "Se exportó el día seleccionado."
+                : "Se exportó el consolidado por lotes.", "#0F766E", "⬇");
+            return executionResult.Artifacts;
+        }
+        catch (Exception exception)
+        {
+            ExportStatusText = $"No se pudo exportar el reporte por fechas: {exception.Message}";
+            PushToast("Error de reporte", exception.Message, "#991B1B", "!");
+            return null;
         }
         finally
         {
@@ -800,14 +981,14 @@ public sealed class MainViewModel : BaseViewModel
             return;
         }
 
-        var cabinId = ResolveSelectedCabinId();
-        if (cabinId is null)
-        {
-            return;
-        }
+        var cabinId = SelectedInjectionTarget.Id == "system"
+            ? null
+            : ResolveSelectedCabinId();
 
-        ApplySnapshot(_engine.InjectOverload(cabinId.Value));
-        PushToast("Sobrecarga", "Se elevó la ocupación de la cabina seleccionada.", "#DC2626", "⬤");
+        ApplySnapshot(_engine.InjectOverload(cabinId));
+        PushToast("Sobrecarga", cabinId is null
+            ? "Se elevó la ocupación de todas las cabinas activas."
+            : "Se elevó la ocupación de la cabina seleccionada.", "#DC2626", "⬤");
         UpdateCommandStates();
     }
 
@@ -818,10 +999,8 @@ public sealed class MainViewModel : BaseViewModel
             return;
         }
 
-        _simulationTimer.Stop();
-        _isRunning = false;
         ApplySnapshot(_engine.InjectEmergencyStop());
-        PushToast("Parada de emergencia", "El sistema ejecutó frenado total y cambió a estado de emergencia.", "#991B1B", "■");
+        PushToast("Emergencia controlada", "El sistema frenó de forma protectora y quedó en recuperación degradada.", "#991B1B", "■");
         UpdateCommandStates();
     }
 
@@ -840,7 +1019,7 @@ public sealed class MainViewModel : BaseViewModel
                     _engine.OperationalState == SystemOperationalState.Completed ? "Jornada completada" : "Jornada detenida",
                     _engine.OperationalState == SystemOperationalState.Completed
                         ? "La simulación llegó al final del servicio."
-                        : "La jornada terminó por protocolo de emergencia.",
+                        : "La jornada terminó por un escalamiento crítico de seguridad.",
                     _engine.OperationalState == SystemOperationalState.Completed ? "#0F766E" : "#991B1B",
                     _engine.OperationalState == SystemOperationalState.Completed ? "✓" : "■");
                 UpdateCommandStates();
@@ -864,12 +1043,52 @@ public sealed class MainViewModel : BaseViewModel
             ScenarioId = SelectedScenario.Id,
             RandomSeed = ParseSeed(),
             SimulationDate = SelectedSimulationDate ?? DateTime.Today,
+            ServiceDurationHours = ServiceDurationHours,
+            PassengerDemandMultiplier = PassengerArrivalMultiplier,
             PressureMode = SelectedPressureMode.Id == "training"
                 ? SimulationPressureMode.IntensifiedTraining
                 : SimulationPressureMode.Realistic,
             CabinsPerDirectionPerSegment = ParseSelectedCabinDensity(),
             RiskTuning = BuildRiskTuningProfile()
         };
+    }
+
+    private static SimulationSessionRequest CloneSessionRequestForDate(SimulationSessionRequest template, DateTime simulationDate)
+    {
+        return new SimulationSessionRequest
+        {
+            ModeId = template.ModeId,
+            ScenarioId = template.ScenarioId,
+            RandomSeed = template.RandomSeed,
+            SimulationDate = simulationDate.Date,
+            ServiceDurationHours = template.ServiceDurationHours,
+            PassengerDemandMultiplier = template.PassengerDemandMultiplier,
+            PressureMode = template.PressureMode,
+            CabinsPerDirectionPerSegment = template.CabinsPerDirectionPerSegment,
+            RiskTuning = template.RiskTuning.Clone()
+        };
+    }
+
+    private static void OpenExportDirectory(string pdfPath)
+    {
+        var directory = Path.GetDirectoryName(pdfPath);
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = directory,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Si Windows no permite abrir la carpeta, la ruta queda visible en ExportStatusText.
+        }
     }
 
     private SimulationRiskTuningProfile BuildRiskTuningProfile()

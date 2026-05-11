@@ -25,6 +25,8 @@ public sealed class SimulationOptions
 
     public double DemandMultiplier { get; set; } = 1.0;
 
+    public double PassengerDemandMultiplier { get; set; } = 1.0;
+
     public double RandomIncidentMultiplier { get; set; } = 1.0;
 
     public int TelemetryCapacity { get; set; } = 360;
@@ -35,9 +37,9 @@ public sealed class SimulationOptions
 
     public bool EnableSafetyEscalation { get; set; } = true;
 
-    public TimeSpan ServiceStartTime { get; set; } = new(8, 0, 0);
+    public TimeSpan ServiceStartTime { get; set; } = new(9, 0, 0);
 
-    public TimeSpan ServiceDuration { get; set; } = TimeSpan.FromHours(9);
+    public TimeSpan ServiceDuration { get; set; } = TimeSpan.FromHours(10);
 
     public DateTime SimulationDate { get; set; } = DateTime.Today;
 

@@ -34,6 +34,8 @@ public sealed class SimulationSessionService
         var operationalVarianceSeed = CreateOperationalVarianceSeed(request.RandomSeed, request.SimulationDate);
         var incidentMultiplier = request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 1.18 : 1.0;
         var telemetryCapacity = request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 960 : 720;
+        var serviceDurationHours = Math.Clamp(request.ServiceDurationHours, 10.0, 16.0);
+        var passengerDemandMultiplier = Math.Clamp(request.PassengerDemandMultiplier, 0.25, 3.0);
         var tuning = request.RiskTuning?.Clone() ?? new SimulationRiskTuningProfile();
         tuning.Normalize();
 
@@ -50,10 +52,11 @@ public sealed class SimulationSessionService
             EnableWeatherSystem = true,
             EnableSafetyEscalation = true,
             RandomIncidentMultiplier = incidentMultiplier,
-            DemandMultiplier = 1.0,
+            DemandMultiplier = passengerDemandMultiplier,
+            PassengerDemandMultiplier = passengerDemandMultiplier,
             FixedTimeStep = TimeSpan.FromMilliseconds(250),
             ServiceStartTime = new TimeSpan(9, 0, 0),
-            ServiceDuration = TimeSpan.FromHours(request.PressureMode == SimulationPressureMode.IntensifiedTraining ? 11 : 10),
+            ServiceDuration = TimeSpan.FromHours(serviceDurationHours),
             TelemetryCapacity = telemetryCapacity,
             RiskTuning = tuning
         };

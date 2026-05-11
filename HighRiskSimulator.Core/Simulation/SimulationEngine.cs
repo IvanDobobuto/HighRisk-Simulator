@@ -60,6 +60,8 @@ public sealed class SimulationEngine
     private long _pendingSequence;
     private bool _systemWidePowerOutage;
     private TimeSpan _powerOutageRemaining;
+    private bool _manualEmergencyProtocolActive;
+    private TimeSpan _manualEmergencyProtocolRemaining;
     private bool _accidentTriggered;
     private double _currentTimeScale = 1.0;
     private TimeSpan _nextWeatherUpdateAt;
@@ -129,6 +131,18 @@ public sealed class SimulationEngine
     public void SetTimeScale(double timeScale)
     {
         _currentTimeScale = Math.Clamp(timeScale, 1.0, 50.0);
+    }
+
+    public void SetDemandMultiplier(double demandMultiplier)
+    {
+        var clamped = Math.Clamp(demandMultiplier, 0.25, 3.0);
+        _options.DemandMultiplier = clamped;
+        _options.PassengerDemandMultiplier = clamped;
+    }
+
+    public void SetServiceDurationHours(double serviceDurationHours)
+    {
+        _options.ServiceDuration = TimeSpan.FromHours(Math.Clamp(serviceDurationHours, 10.0, 16.0));
     }
 
     public void ApplyRiskTuning(SimulationRiskTuningProfile tuning)
@@ -354,26 +368,39 @@ public sealed class SimulationEngine
         return CurrentSnapshot;
     }
 
-    public SimulationSnapshot InjectOverload(int cabinId)
+    public SimulationSnapshot InjectOverload(int? cabinId = null)
     {
-        var cabin = _model.GetCabin(cabinId);
-        cabin.SetPassengers(cabin.Capacity + _microRandom.Next(3, 11));
-        EmitEvent(
-            SimulationEventType.Overload,
-            EventSeverity.Warning,
-            $"Sobrecarga manual en {cabin.Code}",
-            $"La cabina {cabin.Code} quedó por encima de su capacidad nominal para validación del protocolo de control.",
-            15,
-            "Inyección manual",
-            cabin: cabin,
-            segment: _model.GetSegment(cabin.AssignedSegmentId));
+        var targetCabins = cabinId is int selectedCabinId
+            ? new[] { _model.GetCabin(selectedCabinId) }
+            : _model.Cabins.Where(cabin => !cabin.IsOutOfService).ToArray();
 
-        RefreshAfterManualIntervention("Se inyectó una sobrecarga manual.");
+        foreach (var cabin in targetCabins)
+        {
+            cabin.SetPassengers(cabin.Capacity + _microRandom.Next(3, 11));
+            EmitEvent(
+                SimulationEventType.Overload,
+                EventSeverity.Warning,
+                $"Sobrecarga manual en {cabin.Code}",
+                cabinId is null
+                    ? $"La cabina {cabin.Code} quedó por encima de su capacidad como parte de una prueba global de afluencia."
+                    : $"La cabina {cabin.Code} quedó por encima de su capacidad nominal para validación del protocolo de control.",
+                15,
+                "Inyección manual",
+                cabin: cabin,
+                segment: _model.GetSegment(cabin.AssignedSegmentId));
+        }
+
+        RefreshAfterManualIntervention(cabinId is null
+            ? "Se inyectó sobrecarga en todas las cabinas activas."
+            : "Se inyectó una sobrecarga manual.");
         return CurrentSnapshot;
     }
 
     public SimulationSnapshot InjectEmergencyStop()
     {
+        _manualEmergencyProtocolActive = true;
+        _manualEmergencyProtocolRemaining = TimeSpan.FromMinutes(5);
+
         foreach (var cabin in _model.Cabins)
         {
             cabin.ActivateEmergencyBrake(TimeSpan.FromMinutes(3));
@@ -382,14 +409,14 @@ public sealed class SimulationEngine
         EmitEvent(
             SimulationEventType.EmergencyBrake,
             EventSeverity.Critical,
-            "Parada de emergencia manual",
-            "La interfaz activó manualmente el protocolo de parada de emergencia del sistema.",
+            "Protocolo de emergencia manual",
+            "La interfaz activó una contención operacional: las cabinas frenan, se evalúa el estado y el servicio queda degradado sin colapsar la jornada.",
             20,
             "Inyección manual",
-            requiresEmergencyStop: true);
+            requiresEmergencyStop: false);
 
-        OperationalState = SystemOperationalState.EmergencyStop;
-        RefreshAfterManualIntervention("El sistema entró en parada de emergencia manual.");
+        OperationalState = SystemOperationalState.Degraded;
+        RefreshAfterManualIntervention("Emergencia controlada: frenado protector, verificación y recuperación progresiva.");
         return CurrentSnapshot;
     }
 
@@ -464,6 +491,7 @@ public sealed class SimulationEngine
         _elapsed += delta;
 
         UpdatePowerGridState(delta);
+        UpdateManualEmergencyProtocolState(delta);
         UpdateWeather();
         UpdateExternalDemand();
         ProcessPendingActions();
@@ -558,6 +586,39 @@ public sealed class SimulationEngine
             "La red principal se estabilizó y el sistema puede abandonar la protección eléctrica progresivamente.",
             -8,
             "Infraestructura");
+    }
+
+    private void UpdateManualEmergencyProtocolState(TimeSpan delta)
+    {
+        if (!_manualEmergencyProtocolActive)
+        {
+            return;
+        }
+
+        _manualEmergencyProtocolRemaining -= delta;
+        if (_manualEmergencyProtocolRemaining > TimeSpan.Zero)
+        {
+            return;
+        }
+
+        _manualEmergencyProtocolActive = false;
+        _manualEmergencyProtocolRemaining = TimeSpan.Zero;
+
+        foreach (var cabin in _model.Cabins)
+        {
+            if (!cabin.HasElectricalFailure && !cabin.HasMechanicalFailure && !cabin.IsOutOfService)
+            {
+                cabin.ClearEmergencyBrake();
+            }
+        }
+
+        EmitEvent(
+            SimulationEventType.EmergencyBrake,
+            EventSeverity.Info,
+            "Recuperación del protocolo de emergencia",
+            "La inspección simulada permitió recuperar progresivamente las cabinas sin finalizar la jornada.",
+            -7,
+            "Seguridad");
     }
 
     private void UpdateWeather()
@@ -1746,6 +1807,12 @@ public sealed class SimulationEngine
             criticalIssues++;
         }
 
+        if (_manualEmergencyProtocolActive)
+        {
+            risk += 18;
+            criticalIssues++;
+        }
+
         risk += (_model.WeatherState.RiskMultiplier - 1.0) * 14.0;
         risk += _model.WeatherState.IcingRiskIndex * 12.0;
 
@@ -1835,7 +1902,7 @@ public sealed class SimulationEngine
             return;
         }
 
-        if (_activeCriticalIssues > 0 || _systemWidePowerOutage || _model.Cabins.Any(cabin => cabin.AlertLevel == CabinAlertLevel.Critical))
+        if (_activeCriticalIssues > 0 || _systemWidePowerOutage || _manualEmergencyProtocolActive || _model.Cabins.Any(cabin => cabin.AlertLevel == CabinAlertLevel.Critical))
         {
             OperationalState = SystemOperationalState.Degraded;
             return;
@@ -1861,6 +1928,11 @@ public sealed class SimulationEngine
         if (_systemWidePowerOutage)
         {
             return "Operación degradada: corte eléctrico activo y frenado de protección en progreso.";
+        }
+
+        if (_manualEmergencyProtocolActive)
+        {
+            return "Emergencia controlada: cabinas en frenado protector mientras se valida recuperación operativa.";
         }
 
         if (_model.WeatherState.Condition == WeatherCondition.Storm)

@@ -1,210 +1,55 @@
-# Arquitectura actual del proyecto
+# Project Architecture
 
-## Objetivo de esta iteración
+## Propósito
 
-La arquitectura de esta versión se concentró en tres metas simultáneas:
+HighRisk Simulator es un simulador estadístico-operativo para el teleférico Mukumbarí. La arquitectura se divide para proteger el motor de simulación frente a cambios de interfaz: la lógica del dominio vive en `HighRiskSimulator.Core`, mientras que WPF solo presenta snapshots, controles y reportes.
 
-- mejorar drásticamente la legibilidad de la interfaz
-- ampliar el control académico de riesgo sin romper el motor
-- dejar la persistencia futura en MySQL preparada desde contratos claros
+## Capas principales
 
-La decisión rectora fue mantener desacopladas tres responsabilidades:
-- el **núcleo de simulación**
-- la **presentación WPF**
-- la **infraestructura de persistencia futura**
+### `HighRiskSimulator.Core`
 
----
+Contiene el dominio y el motor. No depende de WPF.
 
-## Estructura por capas
+- `Domain/`: entidades del sistema, enums, eventos y snapshots.
+- `Simulation/`: `SimulationEngine`, opciones, perfiles de riesgo, reportes y modelos de jornada.
+- `DataStructures/`: estructuras manuales exigidas por la asignatura y justificadas por el dominio.
+- `Factories/`: construcción del escenario Mukumbarí.
+- `Persistence/`: contratos preparados para almacenamiento futuro sin acoplar el motor a una base de datos concreta.
 
-## 1. Capa Core (`HighRiskSimulator.Core`)
+### `HighRiskSimulator`
 
-Es la capa de dominio y simulación. Aquí vive todo lo que debe seguir funcionando aunque mañana la interfaz deje de ser WPF.
+Contiene la aplicación WPF.
 
-### `Domain/`
-Contiene:
-- entidades principales (`Station`, `TrackSegment`, `Cabin`, `WeatherState`, `SimulationEvent`)
-- enums técnicos y traducciones visibles en español
-- snapshots inmutables consumidos por UI, pruebas y persistencia futura
+- `Views/`: ventana principal, visual sandbox, menú, tutorial, paneles y diálogos.
+- `ViewModels/`: estado observable, comandos, coordinación de simulación y reportes.
+- `Services/`: creación de sesiones y exportación PDF/JSON.
+- `assets/`: sprites pixel art organizados por cabinas, estaciones, fondos, escenas prearmadas, efectos y título.
 
-### `DataStructures/`
-Contiene estructuras manuales justificadas por dominio:
-- `CircularLinkedList<T>`
-- `CabinRing`
-- `StationNetworkGraph`
-- `BinaryMinHeap<T>`
-- `LinkedStack<T>`
+### `HighRiskSimulator.Tests`
 
-### `Simulation/`
-Contiene el flujo del motor:
-- `SimulationOptions`
-- `ScenarioDefinition`
-- `SimulationModel`
-- `RollingMetricSeries`
-- `EventualityTree`
-- `SimulationRiskTuningProfile`
-- `SimulationEngine`
-- `SimulationRunReport`
+Contiene pruebas unitarias para estructuras y reglas críticas del motor.
 
-### `Factories/`
-`MukumbariScenarioFactory` construye:
-- la red de estaciones y segmentos
-- el perfil del día
-- la estacionalidad aplicada
-- las cabinas iniciales
-- las colas iniciales
-- el catálogo de escenarios guionizados
+## Flujo de ejecución
 
-### `Persistence/`
-Aquí se dejaron los contratos desacoplados para persistencia:
-- `ISimulationSnapshotRepository`
-- `ISimulationRunRepository`
-- `SimulationDatabaseSettings`
-- `SimulationPersistenceEnvelope`
-- implementaciones nulas para esta fase
+1. La interfaz crea un `SimulationSessionRequest` con modo, fecha, semilla, duración, demanda y perfil de riesgo.
+2. `SimulationSessionService` traduce esa solicitud a `SimulationOptions` y construye un `SimulationEngine`.
+3. El motor avanza por ticks y emite `SimulationSnapshot`.
+4. `MainViewModel` sincroniza colecciones observables para eventos, cabinas y estaciones.
+5. `MainWindow` dibuja la escena con sprites, animaciones climáticas y overlays de diagnóstico.
+6. `SimulationReportExportService` exporta reportes diarios o por lotes en PDF y JSON.
 
-La razón de este diseño es directa: el motor debe seguir produciendo snapshots y reportes aunque todavía no exista la conexión física a base de datos.
+## Decisiones de arquitectura
 
----
+- **Snapshots inmutables para la UI:** evitan que WPF modifique entidades internas del motor.
+- **Servicios de sesión y reporte separados:** la ventana no construye motores ni PDF directamente.
+- **Escena con Canvas lógico y Viewbox:** permite escalar la visualización sin recalcular todo el layout por resolución.
+- **Sprites como recursos WPF:** se cargan desde `assets/` y se cachean en memoria para no reabrir imágenes en cada frame.
+- **Reportes por lotes fuera del hilo de UI:** las simulaciones largas se ejecutan con `Task.Run` para evitar bloqueos visuales.
 
-## 2. Capa UI (`HighRiskSimulator`)
+## Cambios visuales recientes
 
-Presenta datos y ejecuta acciones del usuario.
-
-### `ViewModels/`
-`MainViewModel` coordina la sesión completa:
-- crea o reinicia corridas
-- controla inicio, pausa y paso
-- corre simulacros instantáneos
-- acelera la corrida actual hasta el cierre
-- dispara exportación PDF/JSON
-- aplica calibración de riesgo en caliente
-- inyecta fallas manuales sin pausar
-- mantiene toasts y colecciones observables
-
-### `Views/`
-`MainWindow` se rediseñó con una distribución tripartita:
-- panel lateral de operador
-- escena principal sandbox
-- bloque lateral analítico
-
-El code-behind quedó limitado a presentación:
-- dibujo del sandbox 2D
-- lectura visual de estados
-- actualización de ScottPlot
-
-### `Services/`
-Contiene servicios de aplicación que no deben contaminar el motor:
-- `SimulationSessionService`
-- `SimulationReportExportService`
-
-### `Models/` y `Helpers/`
-Agrupan modelos de apoyo a UI y utilidades de comandos.
-
----
-
-## 3. Capa de pruebas (`HighRiskSimulator.Tests`)
-
-Mantiene verificación del comportamiento esencial del proyecto:
-- estructuras de datos
-- reglas base del motor
-- consistencia del dominio
-
-La decisión de conservar pruebas en una capa separada evita que la UI condicione la validación del núcleo.
-
----
-
-## Decisiones arquitectónicas nuevas de esta iteración
-
-## 1. Panel lateral colapsable
-
-Se eligió `Expander` lateral en lugar de multiplicar paneles dispersos porque:
-- agrupa todo el control manual en un punto fijo
-- reduce ruido cognitivo en la escena central
-- se puede contraer sin destruir funcionalidad
-- conserva compatibilidad total con WPF nativo
-
-Es mejor que un mosaico de controles distribuidos porque el usuario siempre sabe dónde intervenir.
-
----
-
-## 2. Escena principal con `Canvas` lógico fijo y `ViewBox`
-
-Se eligió una resolución lógica fija escalada por `ViewBox` porque:
-- permite preservar proporciones en 800x600 y en resoluciones mayores
-- evita recalcular toda la composición visual para cada tamaño real de ventana
-- mantiene coordenadas de dibujo simples y deterministas
-- reduce errores de layout en escenas dinámicas
-
-Esta decisión es más estable que usar coordenadas dependientes del tamaño real de cada control y más óptima que introducir un motor externo cuando el problema central sigue siendo académico y operativo.
-
----
-
-## 3. Toasts no bloqueantes
-
-Se eligieron notificaciones tipo toast en lugar de diálogos modales porque:
-- confirman acciones del operador
-- no tapan la vista principal
-- no detienen el flujo de la simulación
-- reducen interrupciones innecesarias en pruebas intensivas
-
-Es la opción correcta para una consola operacional donde las acciones deben confirmarse sin secuestrar la atención.
-
----
-
-## 4. Perfil maestro de riesgo desacoplado
-
-Se centralizó la calibración en `SimulationRiskTuningProfile` porque:
-- reduce duplicación de parámetros
-- hace serializable la configuración
-- deja lista la persistencia histórica de perfiles
-- evita que cada componente invente su propio criterio de ajuste
-
-Esto es mejor que guardar sliders sueltos en la UI o multiplicadores dispersos en varios servicios.
-
----
-
-## 5. Inyección de fallas sin pausa
-
-La capacidad de intervenir en caliente se implementó directamente en el motor porque la corrida no debía depender de un estado intermedio de pausa para aceptar una contingencia.
-
-La decisión es mejor que forzar pausa previa porque:
-- conserva continuidad temporal
-- representa mejor una operación real
-- permite entrenamiento reactivo auténtico
-
----
-
-## 6. Preparación explícita para MySQL
-
-No se integró aún la infraestructura física, pero sí se definió la frontera correcta:
-- settings de conexión
-- contrato de persistencia
-- envelope de corrida completa
-- documento privado de integración
-
-La razón es evitar una integración prematura y frágil dentro del motor. El núcleo produce información. La infraestructura futura la guarda.
-
----
-
-## Flujo principal de la aplicación
-
-1. La UI construye `SimulationSessionRequest`.
-2. `SimulationSessionService` traduce la solicitud a `SimulationOptions`.
-3. `MukumbariScenarioFactory` crea modelo, escenario y motor.
-4. `SimulationEngine` produce snapshots y reportes.
-5. `MainViewModel` sincroniza el snapshot con la UI.
-6. `MainWindow.xaml.cs` representa visualmente la escena y la telemetría.
-7. `SimulationReportExportService` exporta PDF y JSON.
-8. La futura infraestructura MySQL podrá persistir el resultado sin modificar el motor.
-
----
-
-## Criterio rector de la arquitectura
-
-La base actual prioriza:
-- **un motor determinista y explicable**
-- **una UI clara y estable**
-- **infraestructura persistente desacoplada**
-
-Con esta arquitectura, avanzar hacia replay histórico, base de datos MySQL real, dashboards comparativos o una escena visual todavía más rica será una extensión coherente, no una reconstrucción completa.
+- Menú de inicio con opciones Tutorial, Simulador y Salir.
+- Tutorial tipo feature tour con resaltado por zonas.
+- Visual sandbox con escenas día/noche, sprites de cabinas y estaciones, y frames animados para lluvia, viento y neblina.
+- Terminal inferior más alta para lectura de eventos, cabinas y estaciones.
+- Diagnóstico rápido reducido para no cubrir información de la escena.

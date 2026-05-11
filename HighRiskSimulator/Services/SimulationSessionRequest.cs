@@ -18,6 +18,10 @@ public sealed class SimulationSessionRequest
 
     public DateTime SimulationDate { get; set; } = DateTime.Today;
 
+    public double ServiceDurationHours { get; set; } = 10.0;
+
+    public double PassengerDemandMultiplier { get; set; } = 1.0;
+
     public SimulationPressureMode PressureMode { get; set; } = SimulationPressureMode.Realistic;
 
     public int CabinsPerDirectionPerSegment { get; set; } = 1;

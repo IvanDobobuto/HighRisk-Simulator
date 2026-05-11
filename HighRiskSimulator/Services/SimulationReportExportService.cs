@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -18,6 +19,48 @@ public sealed class ExportedSimulationArtifacts
     public string PdfPath { get; set; } = string.Empty;
 
     public string JsonPath { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Consolidado exportable para simulaciones de varios dias.
+/// </summary>
+public sealed class BatchSimulationReport
+{
+    public string SystemName { get; set; } = string.Empty;
+
+    public DateTime StartDate { get; set; }
+
+    public DateTime EndDate { get; set; }
+
+    public DateTime GeneratedAtUtc { get; set; }
+
+    public int DayCount { get; set; }
+
+    public int BaseSeed { get; set; }
+
+    public double AverageRiskScore { get; set; }
+
+    public double MaxRiskScore { get; set; }
+
+    public double AverageOccupancyPercent { get; set; }
+
+    public double AverageVisibilityPercent { get; set; }
+
+    public int TotalProcessedPassengers { get; set; }
+
+    public int TotalRejectedPassengers { get; set; }
+
+    public int TotalEvents { get; set; }
+
+    public int WarningEvents { get; set; }
+
+    public int CriticalEvents { get; set; }
+
+    public int CatastrophicEvents { get; set; }
+
+    public int EmergencyClosures { get; set; }
+
+    public IReadOnlyList<SimulationRunReport> DailyReports { get; set; } = Array.Empty<SimulationRunReport>();
 }
 
 /// <summary>
@@ -55,6 +98,42 @@ public sealed class SimulationReportExportService
         };
     }
 
+    public ExportedSimulationArtifacts ExportBatch(IReadOnlyList<SimulationRunReport> reports, string? outputDirectory = null)
+    {
+        ArgumentNullException.ThrowIfNull(reports);
+
+        var orderedReports = reports
+            .OrderBy(report => report.SimulationDate)
+            .ToList();
+
+        if (orderedReports.Count == 0)
+        {
+            throw new ArgumentException("El lote de reportes no contiene dias simulados.", nameof(reports));
+        }
+
+        var batchReport = BuildBatchReport(orderedReports);
+        var directory = ResolveBatchOutputDirectory(batchReport.StartDate, batchReport.EndDate, outputDirectory);
+        var baseName = BuildBatchFileName(batchReport);
+        var pdfPath = Path.Combine(directory, $"{baseName}.pdf");
+        var jsonPath = Path.Combine(directory, $"{baseName}.json");
+
+        var document = BuildBatchDocument(batchReport);
+        document.GeneratePdf(pdfPath);
+
+        var jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+
+        File.WriteAllText(jsonPath, JsonSerializer.Serialize(batchReport, jsonOptions));
+
+        return new ExportedSimulationArtifacts
+        {
+            PdfPath = pdfPath,
+            JsonPath = jsonPath
+        };
+    }
+
     private static IDocument BuildDocument(SimulationRunReport report)
     {
         var timelineChunks = report.Timeline.Count == 0
@@ -66,6 +145,12 @@ public sealed class SimulationReportExportService
 
         return Document.Create(document =>
         {
+            document.Page(page =>
+            {
+                ConfigurePage(page, report, "Guia de lectura del reporte");
+                page.Content().PaddingVertical(8).Element(container => ComposeReadingGuideContent(container, report));
+            });
+
             document.Page(page =>
             {
                 ConfigurePage(page, report, "Resumen ejecutivo");
@@ -98,6 +183,36 @@ public sealed class SimulationReportExportService
         });
     }
 
+    private static IDocument BuildBatchDocument(BatchSimulationReport batchReport)
+    {
+        return Document.Create(document =>
+        {
+            document.Page(page =>
+            {
+                ConfigureBatchPage(page, batchReport, "Guia de lectura del reporte por lote");
+                page.Content().PaddingVertical(8).Element(container => ComposeBatchReadingGuideContent(container, batchReport));
+            });
+
+            document.Page(page =>
+            {
+                ConfigureBatchPage(page, batchReport, "Resumen global por fechas");
+                page.Content().PaddingVertical(8).Element(container => ComposeBatchSummaryContent(container, batchReport));
+            });
+
+            document.Page(page =>
+            {
+                ConfigureBatchPage(page, batchReport, "Tabla diaria de resultados");
+                page.Content().PaddingVertical(8).Element(container => ComposeBatchDailyContent(container, batchReport));
+            });
+
+            document.Page(page =>
+            {
+                ConfigureBatchPage(page, batchReport, "Eventos relevantes del lote");
+                page.Content().PaddingVertical(8).Element(container => ComposeBatchEventContent(container, batchReport));
+            });
+        });
+    }
+
     private static void ConfigurePage(PageDescriptor page, SimulationRunReport report, string sectionTitle)
     {
         page.Size(PageSizes.A4.Landscape());
@@ -106,6 +221,16 @@ public sealed class SimulationReportExportService
         page.DefaultTextStyle(text => text.FontSize(10).FontColor("#0F172A"));
         page.Header().Element(container => ComposePageHeader(container, report, sectionTitle));
         page.Footer().Element(container => ComposePageFooter(container, report));
+    }
+
+    private static void ConfigureBatchPage(PageDescriptor page, BatchSimulationReport batchReport, string sectionTitle)
+    {
+        page.Size(PageSizes.A4.Landscape());
+        page.Margin(20);
+        page.PageColor(Colors.White);
+        page.DefaultTextStyle(text => text.FontSize(10).FontColor("#0F172A"));
+        page.Header().Element(container => ComposeBatchPageHeader(container, batchReport, sectionTitle));
+        page.Footer().Element(container => ComposeBatchPageFooter(container, batchReport));
     }
 
     private static void ComposePageHeader(IContainer container, SimulationRunReport report, string sectionTitle)
@@ -141,6 +266,339 @@ public sealed class SimulationReportExportService
             text.CurrentPageNumber();
             text.Span(" de ");
             text.TotalPages();
+        });
+    }
+
+    private static void ComposeBatchPageHeader(IContainer container, BatchSimulationReport batchReport, string sectionTitle)
+    {
+        container.Column(column =>
+        {
+            column.Spacing(4);
+            column.Item().Text($"Reporte por lotes - {batchReport.SystemName}").Bold().FontSize(18);
+            column.Item().Text(sectionTitle).SemiBold().FontSize(11).FontColor("#1D4ED8");
+            column.Item().Text($"Periodo simulado: {batchReport.StartDate:yyyy-MM-dd} a {batchReport.EndDate:yyyy-MM-dd} | Dias: {batchReport.DayCount} | Semilla base: {batchReport.BaseSeed}");
+            column.Item().LineHorizontal(1).LineColor("#CBD5E1");
+        });
+    }
+
+    private static void ComposeBatchPageFooter(IContainer container, BatchSimulationReport batchReport)
+    {
+        container.AlignCenter().DefaultTextStyle(style => style.FontSize(9).FontColor("#64748B")).Text(text =>
+        {
+            text.Span($"Generado UTC {batchReport.GeneratedAtUtc:yyyy-MM-dd HH:mm:ss} | Pagina ");
+            text.CurrentPageNumber();
+            text.Span(" de ");
+            text.TotalPages();
+        });
+    }
+
+
+    private static void ComposeReadingGuideContent(IContainer container, SimulationRunReport report)
+    {
+        container.Column(column =>
+        {
+            column.Spacing(12);
+
+            column.Item().Element(SectionCard).Column(section =>
+            {
+                section.Spacing(6);
+                section.Item().Text("Como leer este reporte").Bold().FontSize(14);
+                section.Item().Text("Esta pagina funciona como glosario y hoja de ruta del PDF. Resume el significado de los terminos, indicadores y tablas exportadas para que cualquier usuario pueda interpretar la simulacion sin revisar el codigo fuente.");
+                section.Item().DefaultTextStyle(style => style.FontSize(9).FontColor("#475569")).Text(text =>
+                {
+                    text.Span("Alcance: ").SemiBold();
+                    text.Span($"se reporta la jornada del sistema {report.SystemName} para la fecha {report.SimulationDate:yyyy-MM-dd}. Los valores son el resultado consolidado de la corrida simulada y no de una lectura instantanea de pantalla.");
+                });
+            });
+
+            column.Item().Row(row =>
+            {
+                row.Spacing(12);
+
+                row.RelativeItem().Element(SectionCard).Column(section =>
+                {
+                    section.Spacing(4);
+                    section.Item().Text("Datos base y contexto").Bold().FontSize(13);
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Escenario: ").SemiBold(); text.Span("nombre del contexto operativo simulado."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Perfil: ").SemiBold(); text.Span("patron de demanda o tipo de jornada usado para generar pasajeros y presion operacional."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Temporada: ").SemiBold(); text.Span("marco estacional que condiciona clima y comportamiento general."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Modo de presion: ").SemiBold(); text.Span("nivel de exigencia operacional aplicado por el simulador."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Estado final: ").SemiBold(); text.Span("condicion con la que termina la corrida (operativa, pausada, emergencia, etc.)."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Semilla base / variacion operacional: ").SemiBold(); text.Span("numeros que permiten reproducir el comportamiento pseudoaleatorio de la simulacion."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Calibracion aplicada: ").SemiBold(); text.Span("resumen de multiplicadores de riesgo usados durante la jornada."); });
+                });
+
+                row.RelativeItem().Element(SectionCard).Column(section =>
+                {
+                    section.Spacing(4);
+                    section.Item().Text("Resumen e indicadores").Bold().FontSize(13);
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Resumen ejecutivo / conclusiones: ").SemiBold(); text.Span("lectura narrativa del resultado global y principales hallazgos."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Tiempo simulado: ").SemiBold(); text.Span("duracion total recorrida por el motor de simulacion."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Riesgo maximo / promedio: ").SemiBold(); text.Span("pico y media del score de riesgo consolidado del sistema (escala 0 a 100)."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Ocupacion promedio: ").SemiBold(); text.Span("porcentaje medio de llenado de las cabinas."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Visibilidad promedio: ").SemiBold(); text.Span("lectura media de visibilidad relativa del entorno; menor valor implica peores condiciones."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Viento pico / hielo pico / temperatura minima: ").SemiBold(); text.Span("extremos ambientales mas exigentes observados."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Pax procesados / diferidos: ").SemiBold(); text.Span("pasajeros transportados efectivamente y pasajeros que quedaron sin atender al cierre."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Advertencias, criticos y catastroficos: ").SemiBold(); text.Span("conteo por severidad de eventos registrados."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Huella causal: ").SemiBold(); text.Span("sintesis textual de la cadena principal de eventualidades que explican el resultado."); });
+                });
+            });
+
+            column.Item().Row(row =>
+            {
+                row.Spacing(12);
+
+                row.RelativeItem().Element(SectionCard).Column(section =>
+                {
+                    section.Spacing(4);
+                    section.Item().Text("Tabla de estaciones").Bold().FontSize(13);
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Estacion: ").SemiBold(); text.Span("nombre del punto del sistema."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Regla: ").SemiBold(); text.Span("politica de embarque o transferencia aplicada en esa estacion."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Altitud: ").SemiBold(); text.Span("cota en metros sobre el nivel de referencia del recorrido."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Suben / Bajan: ").SemiBold(); text.Span("pasajeros que abordaron en sentido ascendente y descendente."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Descargan: ").SemiBold(); text.Span("pasajeros que se bajaron en la estacion."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Cola pico / Final: ").SemiBold(); text.Span("maximo de espera observado y cola remanente al cierre."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Pendientes: ").SemiBold(); text.Span("personas que quedaron esperando sin poder ser procesadas."); });
+                });
+
+                row.RelativeItem().Element(SectionCard).Column(section =>
+                {
+                    section.Spacing(4);
+                    section.Item().Text("Tabla de cabinas y linea de tiempo").Bold().FontSize(13);
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Codigo / Tramo: ").SemiBold(); text.Span("identificador de la cabina y segmento principal en el que opera."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Alerta pico: ").SemiBold(); text.Span("nivel mas alto de alerta alcanzado por la cabina."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Viajes: ").SemiBold(); text.Span("recorridos completados durante la jornada."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Pax subidos / bajados: ").SemiBold(); text.Span("volumen movilizado por la unidad."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("% ocup. : ").SemiBold(); text.Span("mayor porcentaje de ocupacion alcanzado."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Salud M / E / F: ").SemiBold(); text.Span("salud remanente mecanica, electrica y de frenado en escala 0 a 100."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("F. emer.: ").SemiBold(); text.Span("cantidad de activaciones de frenado de emergencia."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Hora, severidad, tipo, titulo, ubicacion y riesgo: ").SemiBold(); text.Span("cada fila de la linea de tiempo identifica cuando ocurrio el evento, su importancia y cuanto altero el riesgo. Un riesgo positivo aumenta presion; uno negativo representa mitigacion o recuperacion."); });
+                });
+            });
+        });
+    }
+
+    private static void ComposeBatchReadingGuideContent(IContainer container, BatchSimulationReport batchReport)
+    {
+        container.Column(column =>
+        {
+            column.Spacing(12);
+
+            column.Item().Element(SectionCard).Column(section =>
+            {
+                section.Spacing(6);
+                section.Item().Text("Como leer el reporte por lote").Bold().FontSize(14);
+                section.Item().Text("Este PDF resume varias jornadas consecutivas. Primero muestra indicadores agregados del periodo y luego desglosa resultados diarios y eventos mas relevantes.");
+                section.Item().DefaultTextStyle(style => style.FontSize(9).FontColor("#475569")).Text(text =>
+                {
+                    text.Span("Periodo: ").SemiBold();
+                    text.Span($"desde {batchReport.StartDate:yyyy-MM-dd} hasta {batchReport.EndDate:yyyy-MM-dd}. Cada dia conserva su propio escenario, perfil y estado final dentro del resumen diario.");
+                });
+            });
+
+            column.Item().Row(row =>
+            {
+                row.Spacing(12);
+
+                row.RelativeItem().Element(SectionCard).Column(section =>
+                {
+                    section.Spacing(4);
+                    section.Item().Text("Indicadores globales del lote").Bold().FontSize(13);
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Dias simulados / semilla base: ").SemiBold(); text.Span("cantidad de jornadas consolidadas y base pseudoaleatoria del conjunto."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Riesgo promedio / maximo: ").SemiBold(); text.Span("media del periodo y peor pico observado entre todas las jornadas."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Ocupacion y visibilidad promedio: ").SemiBold(); text.Span("tendencia media del lote."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Pax procesados / diferidos: ").SemiBold(); text.Span("trafico total transportado y pasajeros que quedaron sin atender en el periodo."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Eventos totales / cierres de emergencia: ").SemiBold(); text.Span("conteo consolidado de incidentes y cantidad de jornadas que terminaron por parada de emergencia."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Advertencias / criticos / catastroficos: ").SemiBold(); text.Span("distribucion de severidades en el periodo."); });
+                });
+
+                row.RelativeItem().Element(SectionCard).Column(section =>
+                {
+                    section.Spacing(4);
+                    section.Item().Text("Tabla diaria y eventos relevantes").Bold().FontSize(13);
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Fecha: ").SemiBold(); text.Span("dia de la corrida individual."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Perfil / Temporada: ").SemiBold(); text.Span("tipo de jornada y marco estacional del dia."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Estado: ").SemiBold(); text.Span("condicion final del sistema al cierre de esa jornada."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("R. max / R. prom / Pax / Eventos / Crit. / Emerg.: ").SemiBold(); text.Span("resumen rapido diario de riesgo, trafico, cantidad de eventos, eventos criticos y cierre por emergencia."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Fecha, hora, severidad, tipo, titulo, ubicacion y riesgo: ").SemiBold(); text.Span("columnas de la tabla final con los eventos mas relevantes del periodo. El valor de riesgo refleja el cambio puntual asociado al evento."); });
+                    section.Item().DefaultTextStyle(style => style.FontSize(9.2f)).Text(text => { text.Span("Consejo de lectura: ").SemiBold(); text.Span("use primero la pagina de indicadores globales para identificar tendencia y luego la tabla diaria para localizar jornadas atipicas."); });
+                });
+            });
+        });
+    }
+
+    private static void ComposeBatchSummaryContent(IContainer container, BatchSimulationReport batchReport)
+    {
+        container.Column(column =>
+        {
+            column.Spacing(12);
+            column.Item().Element(SectionCard).Column(section =>
+            {
+                section.Spacing(6);
+                section.Item().Text("Resumen ejecutivo del lote").Bold().FontSize(14);
+                section.Item().Text($"Se simularon {batchReport.DayCount} jornadas entre {batchReport.StartDate:yyyy-MM-dd} y {batchReport.EndDate:yyyy-MM-dd}. El riesgo promedio global fue {batchReport.AverageRiskScore:F1}/100 y el riesgo maximo observado fue {batchReport.MaxRiskScore:F1}/100.");
+                section.Item().Text($"El lote proceso {batchReport.TotalProcessedPassengers} pasajeros, difirio {batchReport.TotalRejectedPassengers} y registro {batchReport.TotalEvents} eventos. Cierres por emergencia: {batchReport.EmergencyClosures}.").FontColor("#334155");
+            });
+
+            column.Item().Element(SectionCard).Column(section =>
+            {
+                section.Spacing(8);
+                section.Item().Text("Indicadores globales").Bold().FontSize(14);
+                section.Item().Element(inner => ComposeBatchMetricsTable(inner, batchReport));
+            });
+        });
+    }
+
+    private static void ComposeBatchMetricsTable(IContainer container, BatchSimulationReport batchReport)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.ConstantColumn(140);
+                columns.RelativeColumn();
+                columns.ConstantColumn(140);
+                columns.RelativeColumn();
+            });
+
+            table.Header(header =>
+            {
+                header.Cell().Element(TableHeaderCell).Text("Indicador").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Valor").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Indicador").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Valor").FontColor(Colors.White).SemiBold();
+            });
+
+            AddMetricRow("Dias simulados", batchReport.DayCount.ToString(), "Semilla base", batchReport.BaseSeed.ToString());
+            AddMetricRow("Riesgo promedio", batchReport.AverageRiskScore.ToString("F1"), "Riesgo maximo", batchReport.MaxRiskScore.ToString("F1"));
+            AddMetricRow("Ocupacion promedio", $"{batchReport.AverageOccupancyPercent:F1} %", "Visibilidad promedio", $"{batchReport.AverageVisibilityPercent:F1} %");
+            AddMetricRow("Pax procesados", batchReport.TotalProcessedPassengers.ToString(), "Pax diferidos", batchReport.TotalRejectedPassengers.ToString());
+            AddMetricRow("Eventos totales", batchReport.TotalEvents.ToString(), "Cierres emergencia", batchReport.EmergencyClosures.ToString());
+            AddMetricRow("Advertencias", batchReport.WarningEvents.ToString(), "Criticos/Catastroficos", $"{batchReport.CriticalEvents}/{batchReport.CatastrophicEvents}");
+
+            void AddMetricRow(string leftLabel, string leftValue, string rightLabel, string rightValue)
+            {
+                table.Cell().Element(TableBodyCell).Text(leftLabel).SemiBold();
+                table.Cell().Element(TableBodyCell).Text(leftValue);
+                table.Cell().Element(TableBodyCell).Text(rightLabel).SemiBold();
+                table.Cell().Element(TableBodyCell).Text(rightValue);
+            }
+        });
+    }
+
+    private static void ComposeBatchDailyContent(IContainer container, BatchSimulationReport batchReport)
+    {
+        container.Column(column =>
+        {
+            column.Spacing(10);
+            column.Item().Text("Resultados por jornada").Bold().FontSize(14);
+            column.Item().Element(SectionCard).Element(inner => ComposeBatchDailyTable(inner, batchReport.DailyReports));
+        });
+    }
+
+    private static void ComposeBatchDailyTable(IContainer container, IReadOnlyList<SimulationRunReport> reports)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.ConstantColumn(78);
+                columns.RelativeColumn(1.2f);
+                columns.ConstantColumn(70);
+                columns.ConstantColumn(70);
+                columns.ConstantColumn(70);
+                columns.ConstantColumn(70);
+                columns.ConstantColumn(70);
+                columns.ConstantColumn(66);
+                columns.ConstantColumn(66);
+                columns.RelativeColumn(1.2f);
+            });
+
+            table.Header(header =>
+            {
+                header.Cell().Element(TableHeaderCell).Text("Fecha").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Perfil").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Estado").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("R. max").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("R. prom").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Pax").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Eventos").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Crit.").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Emerg.").FontColor(Colors.White).SemiBold();
+                header.Cell().Element(TableHeaderCell).Text("Temporada").FontColor(Colors.White).SemiBold();
+            });
+
+            foreach (var report in reports)
+            {
+                table.Cell().Element(TableBodyCell).Text(report.SimulationDate.ToString("yyyy-MM-dd"));
+                table.Cell().Element(TableBodyCell).Text(report.DayProfileName);
+                table.Cell().Element(TableBodyCell).Text(report.FinalStateLabel);
+                table.Cell().Element(TableBodyCell).Text(report.MaxRiskScore.ToString("F1"));
+                table.Cell().Element(TableBodyCell).Text(report.AverageRiskScore.ToString("F1"));
+                table.Cell().Element(TableBodyCell).Text(report.TotalProcessedPassengers.ToString());
+                table.Cell().Element(TableBodyCell).Text(report.TotalEvents.ToString());
+                table.Cell().Element(TableBodyCell).Text(report.CriticalEvents.ToString());
+                table.Cell().Element(TableBodyCell).Text(report.EndedByEmergencyStop ? "Si" : "No");
+                table.Cell().Element(TableBodyCell).Text(report.SeasonalityLabel);
+            }
+        });
+    }
+
+    private static void ComposeBatchEventContent(IContainer container, BatchSimulationReport batchReport)
+    {
+        var relevantEvents = batchReport.DailyReports
+            .SelectMany(report => report.Timeline.Select(item => (Report: report, Event: item)))
+            .OrderByDescending(item => item.Event.Severity)
+            .ThenByDescending(item => Math.Abs(item.Event.RiskDelta))
+            .Take(32)
+            .ToList();
+
+        container.Column(column =>
+        {
+            column.Spacing(10);
+            column.Item().Text("Eventos mas relevantes del periodo").Bold().FontSize(14);
+
+            if (relevantEvents.Count == 0)
+            {
+                column.Item().Element(SectionCard).Text("El lote no registro eventos relevantes exportables.");
+                return;
+            }
+
+            column.Item().Element(SectionCard).Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.ConstantColumn(82);
+                    columns.ConstantColumn(58);
+                    columns.ConstantColumn(86);
+                    columns.ConstantColumn(96);
+                    columns.RelativeColumn(1.8f);
+                    columns.RelativeColumn(1.2f);
+                    columns.ConstantColumn(64);
+                });
+
+                table.Header(header =>
+                {
+                    header.Cell().Element(TableHeaderCell).Text("Fecha").FontColor(Colors.White).SemiBold();
+                    header.Cell().Element(TableHeaderCell).Text("Hora").FontColor(Colors.White).SemiBold();
+                    header.Cell().Element(TableHeaderCell).Text("Severidad").FontColor(Colors.White).SemiBold();
+                    header.Cell().Element(TableHeaderCell).Text("Tipo").FontColor(Colors.White).SemiBold();
+                    header.Cell().Element(TableHeaderCell).Text("Titulo").FontColor(Colors.White).SemiBold();
+                    header.Cell().Element(TableHeaderCell).Text("Ubicacion").FontColor(Colors.White).SemiBold();
+                    header.Cell().Element(TableHeaderCell).Text("Riesgo").FontColor(Colors.White).SemiBold();
+                });
+
+                foreach (var item in relevantEvents)
+                {
+                    table.Cell().Element(TableBodyCell).Text(item.Report.SimulationDate.ToString("yyyy-MM-dd"));
+                    table.Cell().Element(TableBodyCell).Text(item.Event.OccurredAtDisplay);
+                    table.Cell().Element(TableBodyCell).Text(item.Event.SeverityDisplay);
+                    table.Cell().Element(TableBodyCell).Text(item.Event.TypeDisplay);
+                    table.Cell().Element(TableBodyCell).Text(item.Event.Title);
+                    table.Cell().Element(TableBodyCell).Text(item.Event.LocationDisplay);
+                    table.Cell().Element(TableBodyCell).Text(item.Event.RiskDelta.ToString("F1"));
+                }
+            });
         });
     }
 
@@ -419,6 +877,69 @@ public sealed class SimulationReportExportService
             .PaddingHorizontal(5);
     }
 
+    private static BatchSimulationReport BuildBatchReport(IReadOnlyList<SimulationRunReport> reports)
+    {
+        return new BatchSimulationReport
+        {
+            SystemName = reports.First().SystemName,
+            StartDate = reports.First().SimulationDate.Date,
+            EndDate = reports.Last().SimulationDate.Date,
+            GeneratedAtUtc = DateTime.UtcNow,
+            DayCount = reports.Count,
+            BaseSeed = reports.First().BaseSeed,
+            AverageRiskScore = reports.Average(report => report.AverageRiskScore),
+            MaxRiskScore = reports.Max(report => report.MaxRiskScore),
+            AverageOccupancyPercent = reports.Average(report => report.AverageOccupancyPercent),
+            AverageVisibilityPercent = reports.Average(report => report.AverageVisibilityPercent),
+            TotalProcessedPassengers = reports.Sum(report => report.TotalProcessedPassengers),
+            TotalRejectedPassengers = reports.Sum(report => report.TotalRejectedPassengers),
+            TotalEvents = reports.Sum(report => report.TotalEvents),
+            WarningEvents = reports.Sum(report => report.WarningEvents),
+            CriticalEvents = reports.Sum(report => report.CriticalEvents),
+            CatastrophicEvents = reports.Sum(report => report.CatastrophicEvents),
+            EmergencyClosures = reports.Count(report => report.EndedByEmergencyStop),
+            DailyReports = reports.ToList()
+        };
+    }
+
+    private static string ResolveBatchOutputDirectory(DateTime startDate, DateTime endDate, string? outputDirectory)
+    {
+        var preferredBaseDirectory = string.IsNullOrWhiteSpace(outputDirectory)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+            : outputDirectory!;
+
+        var rangeFolder = $"{startDate:yyyyMMdd}_{endDate:yyyyMMdd}";
+        var candidateDirectories = new[]
+        {
+            string.IsNullOrWhiteSpace(preferredBaseDirectory)
+                ? string.Empty
+                : Path.Combine(preferredBaseDirectory, "HighRiskSimulator", "Exports", "Batch", rangeFolder),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HighRiskSimulator", "Exports", "Batch", rangeFolder),
+            Path.Combine(Path.GetTempPath(), "HighRiskSimulator", "Exports", "Batch", rangeFolder)
+        };
+
+        foreach (var candidate in candidateDirectories.Where(path => !string.IsNullOrWhiteSpace(path)))
+        {
+            try
+            {
+                Directory.CreateDirectory(candidate);
+                return candidate;
+            }
+            catch
+            {
+                // Se intenta la siguiente ruta valida.
+            }
+        }
+
+        throw new IOException("No fue posible preparar un directorio de exportacion valido para el lote de reportes.");
+    }
+
+    private static string BuildBatchFileName(BatchSimulationReport report)
+    {
+        var stamp = DateTime.UtcNow.ToString("HHmmssfff");
+        return $"simulation_batch_{report.StartDate:yyyyMMdd}_{report.EndDate:yyyyMMdd}_seed{report.BaseSeed}_{stamp}";
+    }
+
     private static string ResolveOutputDirectory(SimulationRunReport report, string? outputDirectory)
     {
         var preferredBaseDirectory = string.IsNullOrWhiteSpace(outputDirectory)
@@ -455,7 +976,7 @@ public sealed class SimulationReportExportService
         var scenarioPart = SanitizeFileName(report.ScenarioName);
         var variancePart = Math.Abs((long)report.OperationalVarianceSeed);
         var stamp = DateTime.UtcNow.ToString("HHmmssfff");
-        return $"simulacion_{report.SimulationDate:yyyyMMdd}_{scenarioPart}_seed{report.BaseSeed}_var{variancePart}_{stamp}";
+        return $"simulation_{report.SimulationDate:yyyyMMdd}_{scenarioPart}_seed{report.BaseSeed}_var{variancePart}_{stamp}";
     }
 
     private static string SanitizeFileName(string value)
@@ -466,6 +987,6 @@ public sealed class SimulationReportExportService
             .ToArray())
             .Replace(' ', '_');
 
-        return string.IsNullOrWhiteSpace(sanitized) ? "reporte" : sanitized.ToLowerInvariant();
+        return string.IsNullOrWhiteSpace(sanitized) ? "report" : sanitized.ToLowerInvariant();
     }
 }

@@ -16,7 +16,8 @@ El simulador actúa como un gemelo digital funcional que permite:
 - **Gestión de Riesgos:** Panel maestro para calibrar eventos estocásticos (fallas mecánicas, cortes eléctricos y picos de tensión) e inyección de fallas en caliente.
 - **Simulador Climático:** Modelo dinámico de tormentas, vientos racheados, neblina y nieve con impacto en la seguridad operativa.
 -  **HMI (Interfaz):** Diseño optimizado en zonas (Control, Escena, Analítica) con panel colapsable, sandbox 2D escalable y notificaciones no intrusivas.
-- **Telemetría y Datos:** Gráficos en tiempo real con ScottPlot y exportación de reportes técnicos a PDF y JSON.
+- **Telemetría y Datos:** Gráficos en tiempo real con ScottPlot y exportación de reportes diarios o por lotes a PDF y JSON.
+- **Sprites y tutorial:** Menú inicial, feature tour y escena con sprites día/noche, clima animado y assets organizados en `assets/`.
 
 # Instalación y Ejecución
 **Compatibilidad:** Este simulador utiliza WPF, por lo que es exclusivo para Windows 10/11. No es compatible nativamente con Linux o macOS.
@@ -66,14 +67,7 @@ HighRisk-Simulator/
 |-- README.md
 |-- Docs/
 |   |-- Architecture.md
-|   |-- DataStructuresJustification.md
-|   |-- ManualDeUso.md
-|   |-- RevisionEstabilidadUI.md
-|   |-- Roadmap.md
-|   |-- SimulationRealism.md
-|   |-- VerificacionTecnica.md
-|   `-- Privado/
-|       `-- IntegracionMySQL.md
+|   `-- DataStructures.md
 |-- HighRiskSimulator.Core/
 |   |-- Domain/
 |   |-- DataStructures/
@@ -108,11 +102,7 @@ Equipo de desarrollo:
 
 # Documentación del proyecto
 
-- `Docs/Architecture.md` - organización por capas y justificación de la arquitectura.
-- `Docs/DataStructuresJustification.md` - defensa formal de estructuras y contratos seleccionados.
-- `Docs/ManualDeUso.md` - guía de operación de la interfaz y de los flujos académicos.
-- `Docs/RevisionEstabilidadUI.md` - decisiones de estabilidad y UX aplicadas.
-- `Docs/Roadmap.md` - evolución sugerida desde esta base.
-- `Docs/SimulationRealism.md` - criterios de realismo adoptados.
-- `Docs/VerificacionTecnica.md` - revisión técnica y checklist de validación.
-- `Docs/Privado/IntegracionMySQL.md` - guía privada para integrar la base de datos histórica.
+La documentación se redujo a lo exigido para defensa académica:
+
+- `Docs/Architecture.md` - capas del sistema, flujo de ejecución y decisiones de arquitectura.
+- `Docs/DataStructures.md` - justificación de estructuras de datos y uso de snapshots/colecciones.
