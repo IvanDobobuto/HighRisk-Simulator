@@ -411,6 +411,7 @@
                             <Button Content="Tormenta" Command="{Binding InjectStormCommand}" Margin="0,0,4,4" Height="35" ToolTip="Simula tormenta eléctrica"/>
                             <Button Content="Viento" Command="{Binding InjectStrongWindCommand}" Margin="4,0,0,4" Height="35" ToolTip="Inyecta ráfagas de viento fuerte"/>
                             <Button Content="Neblina" Command="{Binding InjectFogCommand}" Margin="0,0,4,4" Height="35" ToolTip="Reduce visibilidad"/>
+                            <Button Content="Nevada" Command="{Binding InjectSnowCommand}" Margin="4,0,0,4" Height="35" ToolTip="Inyecta nevada fuerte"/>
 
                             <Button Content="Falla eléctrica" Command="{Binding InjectElectricalFailureCommand}" Margin="4,0,0,4" Height="35" Background="#B45309" Foreground="White"/>
                             <Button Content="Pico de Tensión" Command="{Binding InjectVoltageSpikeCommand}" Margin="0,0,4,4" Height="35" Background="#92400E" Foreground="White"/>
@@ -419,8 +420,8 @@
                             <Button Content="Sobrecarga" Command="{Binding InjectOverloadCommand}" Margin="0,0,4,4" Height="35" Background="#991B1B" Foreground="White"/>
                             <Button Content="Falla mecánica" Command="{Binding InjectMechanicalFailureCommand}" Margin="4,0,0,4" Height="35" Background="#7F1D1D" Foreground="White"/>
 
-                            <Button Content="Emergencia" Command="{Binding InjectEmergencyStopCommand}" Margin="0,4,0,0" Height="40" Background="#DC2626" Foreground="White" FontWeight="Black" Grid.ColumnSpan="2"/>
-                        </UniformGrid>
+                            <Button Content="Emergencia" Command="{Binding InjectEmergencyStopCommand}" Margin="0,0,4,4" Height="35" Background="#DC2626" Foreground="White" FontWeight="Black"/>
+                            </UniformGrid>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

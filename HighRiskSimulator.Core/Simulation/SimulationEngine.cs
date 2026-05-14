@@ -306,6 +306,20 @@ public sealed class SimulationEngine
         return CurrentSnapshot;
     }
 
+    public SimulationSnapshot InjectSnow()
+    {
+        ApplyWeatherCondition(WeatherCondition.Snow);
+        _eventualityTree.RegisterWeatherContext(_model.WeatherState, _elapsed);
+        EmitEvent(SimulationEventType.ExtremeWeather,
+            EventSeverity.Warning,
+            "Nevada con riesgo de engelamiento inyectada",
+            "La interfaz forzó una nevada intensa.",
+            10,
+            "Inyección manual");
+        RefreshAfterManualIntervention("Se forzó una nevada con riesgo de engelamiento");
+        return CurrentSnapshot;
+    }
+
     public SimulationSnapshot InjectPulleyWear(int cabinId)
     {
         var cabin = _model.GetCabin(cabinId);

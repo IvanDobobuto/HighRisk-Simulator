@@ -18,5 +18,13 @@
   <ItemGroup>
     <Resource Include="assets\**\*.png" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Update="assets\mountains\mountain_5.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Update="assets\mountains\mountain_5_night.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
 
 </Project>

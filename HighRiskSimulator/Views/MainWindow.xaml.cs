@@ -1,3 +1,6 @@
+using HighRiskSimulator.Core.Domain;
+using HighRiskSimulator.Core.Domain.Models;
+using HighRiskSimulator.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,12 +9,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using HighRiskSimulator.Core.Domain;
-using HighRiskSimulator.Core.Domain.Models;
-using HighRiskSimulator.ViewModels;
 
 namespace HighRiskSimulator.Views;
 
@@ -192,6 +193,7 @@ public partial class MainWindow : Window
         }
 
         DrawEnvironmentBackdrop(snapshot);
+        DrawMountains(snapshot, MapPoint);
         DrawAltitudeReference(MapPoint, minAltitude, maxAltitude, minRoute);
         DrawCableRoute(snapshot, MapPoint);
         DrawStations(snapshot, MapPoint);
@@ -213,19 +215,26 @@ public partial class MainWindow : Window
 
     private static string ResolveBackgroundPath(SimulationSnapshot snapshot)
     {
-        if (snapshot.WeatherCondition == WeatherCondition.Storm || snapshot.WeatherCondition == WeatherCondition.Snow)
+        var is_night = IsNoLightMode(snapshot) ? "_night" : string.Empty;
+        if (snapshot.WeatherCondition == WeatherCondition.Storm)
         {
-            return "assets/backgrounds/background_3.png";
+            return $"assets/backgrounds/background_storm{is_night}.png";
+        }
+
+        if (snapshot.WeatherCondition == WeatherCondition.Snow)
+        {
+            return $"assets/backgrounds/background_snow{is_night}.png";
         }
 
         if (snapshot.WeatherCondition == WeatherCondition.Fog)
         {
-            return "assets/backgrounds/background_4.png";
+            return $"assets/backgrounds/background_mist{is_night}.png";
         }
 
-        return IsNightMode(snapshot)
+        /*return IsNightMode(snapshot)
             ? "assets/backgrounds/background_2.png"
-            : "assets/backgrounds/background_1.png";
+            : "assets/backgrounds/background_1.png";*/
+        return $"assets/backgrounds/background{is_night}.png";
     }
 
     private static bool IsNightMode(SimulationSnapshot snapshot)
@@ -406,6 +415,27 @@ public partial class MainWindow : Window
             Canvas.SetTop(trunk, 760);
             RouteCanvas.Children.Add(trunk);
         }
+    }
+
+    private void DrawMountains(SimulationSnapshot snapshot, Func<double, double, Point> mapPoint)
+    {
+        var OrderedStations = snapshot.Stations.OrderBy(station => station.RoutePositionMeters).ToList();
+        for (var index = 0; index < OrderedStations.Count; index++)
+        {
+            var station = OrderedStations[index];
+            var point = mapPoint(station.RoutePositionMeters, station.AltitudeMeters);
+            var mountain = CreateSpriteImage(ResolveMountainPath(snapshot, index + 1), 400, 500, Stretch.Uniform, 1.0);
+            Canvas.SetLeft(mountain, point.X - 180);
+            Canvas.SetTop(mountain, point.Y - 74);
+            RouteCanvas.Children.Add(mountain);
+        }
+    }
+
+    private static string ResolveMountainPath(SimulationSnapshot snapshot, int index)
+    {
+        return IsNightMode(snapshot)
+            ? $"assets/mountains/mountain_{index}_night.png"
+            : $"assets/mountains/mountain_{index}.png";
     }
 
     private void DrawAltitudeReference(Func<double, double, Point> mapPoint, double minAltitude, double maxAltitude, double minRoute)
@@ -739,8 +769,7 @@ public partial class MainWindow : Window
                 AddSceneEffect("assets/effects/mist.png", 0.62);
                 break;
             case WeatherCondition.Snow:
-                AddSceneEffect($"assets/effects/rain_frame_{_weatherFrameIndex + 1}.png", 0.18);
-                DrawSnowOverlay();
+                AddSceneEffect($"assets/effects/snow_frame_{_weatherFrameIndex + 1}.png", 0.9);
                 break;
             case WeatherCondition.Storm:
                 AddSceneEffect($"assets/effects/rain_frame_{_weatherFrameIndex + 1}.png", 0.48);
@@ -764,53 +793,10 @@ public partial class MainWindow : Window
         {
             return;
         }
-
-        var lightning = new Polygon
-        {
-            Fill = new SolidColorBrush(Color.FromArgb(225, 250, 204, 21)),
-            Points = new PointCollection
-            {
-                new(1210, 110),
-                new(1170, 220),
-                new(1210, 220),
-                new(1178, 330),
-                new(1280, 190),
-                new(1230, 190)
-            }
-        };
+        var lightning = CreateSpriteImage("assets/effects/lightning.png", 350, 350, Stretch.Uniform, 0.90);
+        Canvas.SetLeft(lightning, 1100);
+        Canvas.SetTop(lightning, 0);
         RouteCanvas.Children.Add(lightning);
-    }
-
-
-    private void DrawWindOverlay()
-    {
-        for (var index = 0; index < 18; index++)
-        {
-            var baseY = 120 + (index * 34);
-            var line = new Path
-            {
-                Stroke = new SolidColorBrush(Color.FromArgb(90, 186, 230, 253)),
-                StrokeThickness = 3,
-                Data = Geometry.Parse($"M {60 + (index * 36)} {baseY} C {120 + (index * 36)} {baseY - 16}, {160 + (index * 36)} {baseY + 16}, {220 + (index * 36)} {baseY}")
-            };
-            RouteCanvas.Children.Add(line);
-        }
-    }
-
-    private void DrawFogOverlay()
-    {
-        for (var index = 0; index < 5; index++)
-        {
-            var fogBand = new Rectangle
-            {
-                Width = SceneWidth,
-                Height = 90,
-                Fill = new SolidColorBrush(Color.FromArgb((byte)(54 + (index * 14)), 241, 245, 249))
-            };
-            Canvas.SetLeft(fogBand, 0);
-            Canvas.SetTop(fogBand, 240 + (index * 70));
-            RouteCanvas.Children.Add(fogBand);
-        }
     }
 
     private void DrawSnowOverlay()
@@ -827,38 +813,6 @@ public partial class MainWindow : Window
             Canvas.SetTop(flake, 70 + ((index * 29) % 720));
             RouteCanvas.Children.Add(flake);
         }
-    }
-
-    private void DrawStormOverlay()
-    {
-        for (var index = 0; index < 90; index++)
-        {
-            var drop = new Line
-            {
-                X1 = 20 + ((index * 17) % 1540),
-                X2 = 28 + ((index * 17) % 1540),
-                Y1 = 80 + ((index * 23) % 720),
-                Y2 = 98 + ((index * 23) % 720),
-                Stroke = new SolidColorBrush(Color.FromArgb(165, 125, 211, 252)),
-                StrokeThickness = 2
-            };
-            RouteCanvas.Children.Add(drop);
-        }
-
-        var lightning = new Polygon
-        {
-            Fill = new SolidColorBrush(Color.FromArgb(230, 250, 204, 21)),
-            Points = new PointCollection
-            {
-                new(1210, 110),
-                new(1170, 220),
-                new(1210, 220),
-                new(1178, 330),
-                new(1280, 190),
-                new(1230, 190)
-            }
-        };
-        RouteCanvas.Children.Add(lightning);
     }
 
     private void DrawSceneHud(SimulationSnapshot snapshot)

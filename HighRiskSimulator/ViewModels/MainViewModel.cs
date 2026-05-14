@@ -143,6 +143,7 @@ public sealed class MainViewModel : BaseViewModel
         InjectStormCommand = new RelayCommand(InjectStorm, CanInjectGeneralFailure);
         InjectStrongWindCommand = new RelayCommand(InjectStrongWind, CanInjectGeneralFailure);
         InjectFogCommand = new RelayCommand(InjectFog, CanInjectGeneralFailure);
+        InjectSnowCommand = new RelayCommand(InjectSnow, CanInjectGeneralFailure);
         InjectPulleyWearCommand = new RelayCommand(InjectPulleyWear, CanInjectCabinTargetedFailure);
         InjectVoltageSpikeCommand = new RelayCommand(InjectVoltageSpike, CanInjectGeneralFailure);
         InjectOverloadCommand = new RelayCommand(InjectOverload, CanInjectCabinTargetedFailure);
@@ -198,6 +199,8 @@ public sealed class MainViewModel : BaseViewModel
     public RelayCommand InjectStrongWindCommand { get; }
 
     public RelayCommand InjectFogCommand { get; }
+
+    public RelayCommand InjectSnowCommand { get; }
 
     public RelayCommand InjectPulleyWearCommand { get; }
 
@@ -940,6 +943,18 @@ public sealed class MainViewModel : BaseViewModel
         UpdateCommandStates();
     }
 
+    private void InjectSnow()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        ApplySnapshot(_engine.InjectSnow());
+        PushToast("Nevada", "Se inyecto una nevada con riesgo de engelamiento", "FFFFFF", "❅");
+        UpdateCommandStates();
+    }
+
     private void InjectPulleyWear()
     {
         if (_isBusy)
@@ -1313,6 +1328,7 @@ public sealed class MainViewModel : BaseViewModel
         InjectStormCommand.RaiseCanExecuteChanged();
         InjectStrongWindCommand.RaiseCanExecuteChanged();
         InjectFogCommand.RaiseCanExecuteChanged();
+        InjectSnowCommand.RaiseCanExecuteChanged();
         InjectPulleyWearCommand.RaiseCanExecuteChanged();
         InjectVoltageSpikeCommand.RaiseCanExecuteChanged();
         InjectOverloadCommand.RaiseCanExecuteChanged();
