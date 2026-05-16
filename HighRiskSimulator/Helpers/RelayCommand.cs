@@ -4,7 +4,7 @@ using System.Windows.Input;
 namespace HighRiskSimulator.Helpers;
 
 /// <summary>
-/// Implementación simple de ICommand para esta interfaz WPF.
+/// Implementación simple de ICommand para esta interfaz Avalonia.
 /// </summary>
 public sealed class RelayCommand : ICommand
 {

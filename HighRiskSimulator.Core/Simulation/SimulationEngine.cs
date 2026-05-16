@@ -306,20 +306,6 @@ public sealed class SimulationEngine
         return CurrentSnapshot;
     }
 
-    public SimulationSnapshot InjectSnow()
-    {
-        ApplyWeatherCondition(WeatherCondition.Snow);
-        _eventualityTree.RegisterWeatherContext(_model.WeatherState, _elapsed);
-        EmitEvent(SimulationEventType.ExtremeWeather,
-            EventSeverity.Warning,
-            "Nevada con riesgo de engelamiento inyectada",
-            "La interfaz forzó una nevada intensa.",
-            10,
-            "Inyección manual");
-        RefreshAfterManualIntervention("Se forzó una nevada con riesgo de engelamiento");
-        return CurrentSnapshot;
-    }
-
     public SimulationSnapshot InjectPulleyWear(int cabinId)
     {
         var cabin = _model.GetCabin(cabinId);
@@ -442,6 +428,8 @@ public sealed class SimulationEngine
         var warningEvents = _eventTimeline.Count(item => item.Severity == EventSeverity.Warning);
         var criticalEvents = _eventTimeline.Count(item => item.Severity == EventSeverity.Critical);
         var catastrophicEvents = _eventTimeline.Count(item => item.Severity == EventSeverity.Catastrophic);
+        var attendedPassengers = EstimateAttendedPassengerCount();
+        var pendingPassengers = EstimatePendingPassengerCount();
 
         var tuning = _options.RiskTuning ?? new SimulationRiskTuningProfile();
 
@@ -453,7 +441,7 @@ public sealed class SimulationEngine
             SeasonalityLabel = _model.SeasonalityProfile.FullDisplayName,
             PressureModeLabel = _options.PressureMode.ToDisplayText(),
             FinalStateLabel = OperationalState.ToDisplayText(),
-            ExecutiveSummary = BuildExecutiveSummary(averageRisk, averageOccupancy),
+            ExecutiveSummary = BuildExecutiveSummary(averageRisk, averageOccupancy, attendedPassengers),
             Conclusions = BuildConclusions(averageRisk),
             EventualityFingerprint = _eventualityTree.Fingerprint,
             RiskCalibrationSummary = tuning.ToSummaryText(),
@@ -469,8 +457,8 @@ public sealed class SimulationEngine
             PeakIcingRiskPercent = _peakIcingRisk * 100.0,
             PeakWindSpeedMetersPerSecond = _peakWindSpeed,
             LowestTemperatureCelsius = _lowestTemperatureCelsius,
-            TotalProcessedPassengers = _processedPassengers,
-            TotalRejectedPassengers = _rejectedPassengers,
+            TotalProcessedPassengers = attendedPassengers,
+            TotalRejectedPassengers = pendingPassengers,
             TotalEvents = _eventTimeline.Count,
             WarningEvents = warningEvents,
             CriticalEvents = criticalEvents,
@@ -1598,8 +1586,8 @@ public sealed class SimulationEngine
         }
         else
         {
-            var continuationRatio = Math.Clamp(0.18 + (station.AttractionFactor * 0.09) + ((_model.DayProfile.TransferContinuationBias - 1.0) * 0.09), 0.10, 0.42);
-            var returnRatio = Math.Clamp(0.16 + (station.AttractionFactor * 0.10) + ((_model.DayProfile.ReturnBias - 1.0) * 0.10), 0.10, 0.40);
+            var continuationRatio = Math.Clamp(0.54 + (station.AttractionFactor * 0.08) + ((_model.DayProfile.TransferContinuationBias - 1.0) * 0.10), 0.48, 0.82);
+            var returnRatio = Math.Clamp(0.12 + (station.AttractionFactor * 0.06) + ((_model.DayProfile.ReturnBias - 1.0) * 0.06), 0.08, 0.24);
 
             continuationCount = (int)Math.Round(unloadedPassengers * ApplyRatioJitter(continuationRatio));
             returnCount = (int)Math.Round(unloadedPassengers * ApplyRatioJitter(returnRatio));
@@ -2107,8 +2095,8 @@ public sealed class SimulationEngine
             cabinSnapshots.Count == 0 ? 0 : cabinSnapshots.Average(snapshot => snapshot.OccupancyPercent),
             _model.WeatherState.VisibilityFactor * 100.0,
             _model.WeatherState.IcingRiskIndex * 100.0,
-            _processedPassengers,
-            _rejectedPassengers,
+            EstimateAttendedPassengerCount(),
+            EstimatePendingPassengerCount(),
             _activeCriticalIssues,
             _eventTimeline.Count,
             cabinSnapshots,
@@ -2186,7 +2174,7 @@ public sealed class SimulationEngine
                     GeneratedDescendingQueue = stats.GeneratedDescendingQueue,
                     PeakQueue = stats.PeakQueue,
                     FinalQueue = station.WaitingAscendingPassengers + station.WaitingDescendingPassengers,
-                    LeftWaitingPassengers = stats.LeftWaitingPassengers
+                    LeftWaitingPassengers = station.WaitingAscendingPassengers + station.WaitingDescendingPassengers
                 };
             })
             .ToList();
@@ -2219,14 +2207,30 @@ public sealed class SimulationEngine
             .ToList();
     }
 
-    private string BuildExecutiveSummary(double averageRisk, double averageOccupancy)
+    private string BuildExecutiveSummary(double averageRisk, double averageOccupancy, int attendedPassengers)
     {
         if (OperationalState == SystemOperationalState.EmergencyStop)
         {
-            return $"La corrida terminó en parada de emergencia tras alcanzar un riesgo pico de {_peakRiskScore:F1}/100. Se procesaron {_processedPassengers} pasajeros y la ocupación media fue de {averageOccupancy:F1}%.";
+            return $"La corrida terminó en parada de emergencia tras alcanzar un riesgo pico de {_peakRiskScore:F1}/100. Se atendieron {attendedPassengers} pasajeros de entrada al sistema y la ocupación media fue de {averageOccupancy:F1}%.";
         }
 
-        return $"La jornada {(_elapsed >= _options.ServiceDuration ? "cerró" : "avanzó")} con estado final '{OperationalState.ToDisplayText()}'. El riesgo promedio fue de {averageRisk:F1}/100, el riesgo máximo alcanzó {_peakRiskScore:F1}/100 y se procesaron {_processedPassengers} pasajeros.";
+        return $"La jornada {(_elapsed >= _options.ServiceDuration ? "cerró" : "avanzó")} con estado final '{OperationalState.ToDisplayText()}'. El riesgo promedio fue de {averageRisk:F1}/100, el riesgo máximo alcanzó {_peakRiskScore:F1}/100 y se atendieron {attendedPassengers} pasajeros de entrada al sistema.";
+    }
+
+    private int EstimateAttendedPassengerCount()
+    {
+        var lowerTerminal = _model.Stations.FirstOrDefault(station => station.IsLowerTerminal);
+        if (lowerTerminal is not null && _stationStats.TryGetValue(lowerTerminal.Id, out var lowerStats))
+        {
+            return Math.Max(0, lowerStats.BoardedAscending);
+        }
+
+        return _stationStats.Values.Sum(stats => stats.BoardedAscending + stats.BoardedDescending);
+    }
+
+    private int EstimatePendingPassengerCount()
+    {
+        return _model.Stations.Sum(station => station.WaitingAscendingPassengers + station.WaitingDescendingPassengers);
     }
 
     private string BuildConclusions(double averageRisk)
