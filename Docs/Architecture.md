@@ -2,13 +2,13 @@
 
 ## Propósito
 
-HighRisk Simulator es un simulador estadístico-operativo para el teleférico Mukumbarí. La arquitectura se divide para proteger el motor de simulación frente a cambios de interfaz: la lógica del dominio vive en `HighRiskSimulator.Core`, mientras que WPF solo presenta snapshots, controles y reportes.
+HighRisk Simulator es un simulador estadístico-operativo para el teleférico Mukumbarí. La arquitectura se divide para proteger el motor de simulación frente a cambios de interfaz: la lógica del dominio vive en `HighRiskSimulator.Core`, mientras que Avalonia UI solo presenta snapshots, controles y reportes.
 
 ## Capas principales
 
 ### `HighRiskSimulator.Core`
 
-Contiene el dominio y el motor. No depende de WPF.
+Contiene el dominio y el motor. No depende de Avalonia UI.
 
 - `Domain/`: entidades del sistema, enums, eventos y snapshots.
 - `Simulation/`: `SimulationEngine`, opciones, perfiles de riesgo, reportes y modelos de jornada.
@@ -18,7 +18,7 @@ Contiene el dominio y el motor. No depende de WPF.
 
 ### `HighRiskSimulator`
 
-Contiene la aplicación WPF.
+Contiene la aplicación Avalonia UI.
 
 - `Views/`: ventana principal, visual sandbox, menú, tutorial, paneles y diálogos.
 - `ViewModels/`: estado observable, comandos, coordinación de simulación y reportes.
@@ -40,10 +40,10 @@ Contiene pruebas unitarias para estructuras y reglas críticas del motor.
 
 ## Decisiones de arquitectura
 
-- **Snapshots inmutables para la UI:** evitan que WPF modifique entidades internas del motor.
+- **Snapshots inmutables para la UI:** evitan que Avalonia UI modifique entidades internas del motor.
 - **Servicios de sesión y reporte separados:** la ventana no construye motores ni PDF directamente.
 - **Escena con Canvas lógico y Viewbox:** permite escalar la visualización sin recalcular todo el layout por resolución.
-- **Sprites como recursos WPF:** se cargan desde `assets/` y se cachean en memoria para no reabrir imágenes en cada frame.
+- **Sprites como recursos Avalonia:** se cargan desde `assets/` y se cachean en memoria para no reabrir imágenes en cada frame.
 - **Reportes por lotes fuera del hilo de UI:** las simulaciones largas se ejecutan con `Task.Run` para evitar bloqueos visuales.
 
 ## Cambios visuales recientes

@@ -2,13 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Threading;
 using HighRiskSimulator.Core.Domain;
 using HighRiskSimulator.Core.Domain.Models;
 using HighRiskSimulator.ViewModels;
@@ -16,30 +18,24 @@ using HighRiskSimulator.ViewModels;
 namespace HighRiskSimulator.Views;
 
 /// <summary>
-/// Ventana principal.
-///
-/// El code-behind se utiliza únicamente para tareas de presentación:
-/// - dibujar la escena sandbox 2D escalable;
-/// - actualizar ScottPlot con seguimiento automático de la ventana temporal;
-/// - soporte de zoom interactivo con auto-follow configurable.
+/// Ventana principal Avalonia. Mantiene la lógica visual separada del motor de simulación.
 /// </summary>
 public partial class MainWindow : Window
 {
-    private const double TelemetryWindowSeconds = 420;
     private const double TelemetryLeadMarginSeconds = 30;
     private const double SceneWidth = 1600;
     private const double SceneHeight = 900;
-    private readonly Dictionary<string, ImageSource> _spriteCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IImage> _spriteCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly DispatcherTimer _weatherAnimationTimer;
     private readonly List<TutorialStep> _tutorialSteps = new();
     private SimulationSnapshot? _lastSnapshot;
-    private bool _userHasCustomView;
+    private double _telemetryWindowSeconds = 420;
     private bool _tutorialWeatherInjected;
     private bool _tutorialEventInjected;
     private int _weatherFrameIndex;
     private int _tutorialStepIndex;
 
-    private MainViewModel ViewModel => (MainViewModel)DataContext;
+    private MainViewModel ViewModel => (MainViewModel)DataContext!;
 
     public MainWindow()
     {
@@ -49,16 +45,13 @@ public partial class MainWindow : Window
         viewModel.SnapshotUpdated += ViewModelOnSnapshotUpdated;
         DataContext = viewModel;
 
-        // ScottPlot.WPF v5 does not expose an `Interaction` property on `WpfPlot`.
-        // Interactive behavior is handled via the control's events (MouseWheel, MouseDown, etc.).
-        // The explicit call to `MetricsPlot.Interaction.Enable()` was removed to fix CS1061.
-
-        MetricsPlot.MouseWheel += (_, _) => _userHasCustomView = true;
-        MetricsPlot.MouseDown += (_, args) =>
+        MetricsPlot.PointerWheelChanged += (_, _) => UpdateTelemetryPlot(_lastSnapshot?.Telemetry);
+        MetricsPlot.PointerPressed += (_, args) =>
         {
-            if (args.ChangedButton == System.Windows.Input.MouseButton.Right)
+            if (args.GetCurrentPoint(MetricsPlot).Properties.PointerUpdateKind == PointerUpdateKind.RightButtonPressed)
             {
-                _userHasCustomView = false;
+                _telemetryWindowSeconds = 420;
+                UpdateTelemetryPlot(_lastSnapshot?.Telemetry);
             }
         };
 
@@ -84,6 +77,14 @@ public partial class MainWindow : Window
                 ViewModelOnSnapshotUpdated(this, viewModel.LastSnapshot);
             }
         };
+
+        SizeChanged += (_, _) =>
+        {
+            if (TutorialOverlay.IsVisible)
+            {
+                RefreshTutorialOverlayLayout();
+            }
+        };
     }
 
     private void ViewModelOnSnapshotUpdated(object? sender, SimulationSnapshot snapshot)
@@ -93,35 +94,45 @@ public partial class MainWindow : Window
         UpdateTelemetryPlot(snapshot.Telemetry);
     }
 
-    private void TriggerMenuToggleButton_Checked(object sender, RoutedEventArgs e)
+    private void TriggerMenuToggleButton_Click(object? sender, RoutedEventArgs e)
     {
-        // Si abro el menú izquierdo, apago el de probabilidades
-        if (RiskMenuToggleButton != null && RiskMenuToggleButton.IsChecked == true)
+        if (TriggerMenuToggleButton.IsChecked == true)
         {
             RiskMenuToggleButton.IsChecked = false;
         }
     }
 
-    private void RiskMenuToggleButton_Checked(object sender, RoutedEventArgs e)
+    private void RiskMenuToggleButton_Click(object? sender, RoutedEventArgs e)
     {
-        // Si abro el menú de probabilidades, apago el izquierdo
-        if (TriggerMenuToggleButton != null && TriggerMenuToggleButton.IsChecked == true)
+        if (RiskMenuToggleButton.IsChecked == true)
         {
             TriggerMenuToggleButton.IsChecked = false;
         }
     }
 
-    private void UpdateTelemetryPlot(TelemetrySnapshot telemetry)
+    private void TelemetryZoomIn_Click(object? sender, RoutedEventArgs e)
+    {
+        _telemetryWindowSeconds = Math.Max(60, _telemetryWindowSeconds * 0.65);
+        UpdateTelemetryPlot(_lastSnapshot?.Telemetry);
+    }
+
+    private void TelemetryZoomOut_Click(object? sender, RoutedEventArgs e)
+    {
+        _telemetryWindowSeconds = Math.Min(3600, _telemetryWindowSeconds * 1.55);
+        UpdateTelemetryPlot(_lastSnapshot?.Telemetry);
+    }
+
+    private void UpdateTelemetryPlot(TelemetrySnapshot? telemetry)
     {
         MetricsPlot.Plot.Clear();
-
-        // HACK: Configuración tipo "Dark Mode" para ScottPlot para integrarse al cristal
         MetricsPlot.Plot.FigureBackground.Color = ScottPlot.Colors.Transparent;
         MetricsPlot.Plot.DataBackground.Color = ScottPlot.Colors.Transparent;
         MetricsPlot.Plot.Axes.Color(ScottPlot.Colors.SlateGray);
-        MetricsPlot.Plot.Grid.LineColor = ScottPlot.Color.FromHex("#22334155"); // Grid muy sutil
+        MetricsPlot.Plot.Grid.LineColor = ScottPlot.Color.FromHex("#22334155");
+        MetricsPlot.Plot.Axes.Bottom.Label.Text = "Tiempo simulado (s)";
+        MetricsPlot.Plot.Axes.Left.Label.Text = "Riesgo / ocupacion (%)";
 
-        if (telemetry.RiskSeries.Count > 0)
+        if (telemetry is not null && telemetry.RiskSeries.Count > 0)
         {
             var risk = MetricsPlot.Plot.Add.Scatter(telemetry.RiskX, telemetry.RiskY);
             risk.Color = ScottPlot.Colors.Crimson;
@@ -131,20 +142,46 @@ public partial class MainWindow : Window
             var occupancy = MetricsPlot.Plot.Add.Scatter(telemetry.OccupancyX, telemetry.OccupancyY);
             occupancy.Color = ScottPlot.Colors.DeepSkyBlue;
             occupancy.LineWidth = 2f;
-            occupancy.LegendText = "Ocupación media";
+            occupancy.LegendText = "Ocupacion media";
 
+            var latestX = telemetry.RiskX.Length > 0 ? telemetry.RiskX[^1] : 0;
+            var minX = Math.Max(0, latestX - _telemetryWindowSeconds);
+            var maxX = Math.Max(_telemetryWindowSeconds, latestX + TelemetryLeadMarginSeconds);
+            var (minY, maxY) = ResolveTelemetryYRange(telemetry, minX, maxX);
+            MetricsPlot.Plot.Axes.SetLimitsX(minX, maxX);
+            MetricsPlot.Plot.Axes.SetLimitsY(minY, maxY);
             MetricsPlot.Plot.ShowLegend();
-            // Fondo transparente para la leyenda también
             MetricsPlot.Plot.Legend.BackgroundColor = ScottPlot.Colors.Transparent;
-            // Obsolete usage removed: assign FontColor instead of using Legend.Font
             MetricsPlot.Plot.Legend.FontColor = ScottPlot.Colors.LightGray;
             MetricsPlot.Plot.Legend.OutlineStyle.Color = ScottPlot.Colors.Transparent;
-
-            // Limites de ejes y seguimiento de ventana de tiempo (el código original de tu auto-follow se mantiene intacto)
-            // ...
+        }
+        else
+        {
+            MetricsPlot.Plot.Axes.SetLimitsX(0, _telemetryWindowSeconds);
+            MetricsPlot.Plot.Axes.SetLimitsY(0, 105);
         }
 
         MetricsPlot.Refresh();
+    }
+
+    private static (double MinY, double MaxY) ResolveTelemetryYRange(TelemetrySnapshot telemetry, double minX, double maxX)
+    {
+        var values = telemetry.RiskX
+            .Zip(telemetry.RiskY, (x, y) => (X: x, Y: y))
+            .Concat(telemetry.OccupancyX.Zip(telemetry.OccupancyY, (x, y) => (X: x, Y: y)))
+            .Where(point => point.X >= minX && point.X <= maxX && !double.IsNaN(point.Y) && !double.IsInfinity(point.Y))
+            .Select(point => point.Y)
+            .ToList();
+
+        if (values.Count == 0)
+        {
+            return (0, 105);
+        }
+
+        var minValue = Math.Min(0, values.Min());
+        var maxValue = Math.Max(100, values.Max());
+        var padding = Math.Max(5, (maxValue - minValue) * 0.10);
+        return (Math.Floor(minValue - padding), Math.Ceiling(maxValue + padding));
     }
 
     private void RenderSandboxScene(SimulationSnapshot snapshot)
@@ -192,7 +229,6 @@ public partial class MainWindow : Window
         DrawSceneHud(snapshot);
     }
 
-
     private void DrawEnvironmentBackdrop(SimulationSnapshot snapshot)
     {
         var background = CreateSpriteImage(ResolveBackgroundPath(snapshot), SceneWidth, SceneHeight, Stretch.Fill, 0.98);
@@ -200,7 +236,20 @@ public partial class MainWindow : Window
         Canvas.SetTop(background, 0);
         RouteCanvas.Children.Add(background);
 
-        DrawCinematicVignette(snapshot);
+        var opacity = IsNightMode(snapshot) ? 0.28 : 0.15;
+        if (IsNoLightMode(snapshot))
+        {
+            opacity += 0.14;
+        }
+
+        var vignette = new Rectangle
+        {
+            Width = SceneWidth,
+            Height = SceneHeight,
+            Opacity = opacity,
+            Fill = new SolidColorBrush(Color.FromArgb(185, 2, 6, 23))
+        };
+        RouteCanvas.Children.Add(vignette);
     }
 
     private static string ResolveBackgroundPath(SimulationSnapshot snapshot)
@@ -231,34 +280,6 @@ public partial class MainWindow : Window
             || snapshot.OperationalState == SystemOperationalState.EmergencyStop;
     }
 
-    private void DrawCinematicVignette(SimulationSnapshot snapshot)
-    {
-        var opacity = IsNightMode(snapshot) ? 0.28 : 0.15;
-        if (IsNoLightMode(snapshot))
-        {
-            opacity += 0.14;
-        }
-        var vignette = new Rectangle
-        {
-            Width = SceneWidth,
-            Height = SceneHeight,
-            Opacity = opacity,
-            Fill = new RadialGradientBrush
-            {
-                GradientOrigin = new Point(0.5, 0.45),
-                Center = new Point(0.5, 0.45),
-                RadiusX = 0.78,
-                RadiusY = 0.80,
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(0, 0, 0, 0), 0.55),
-                    new GradientStop(Color.FromArgb(220, 2, 6, 23), 1.0)
-                }
-            }
-        };
-        RouteCanvas.Children.Add(vignette);
-    }
-
     private Image CreateSpriteImage(string relativePath, double width, double height, Stretch stretch = Stretch.Uniform, double opacity = 1.0)
     {
         return new Image
@@ -267,137 +288,22 @@ public partial class MainWindow : Window
             Width = width,
             Height = height,
             Stretch = stretch,
-            SnapsToDevicePixels = true,
             Opacity = opacity
         };
     }
 
-    private ImageSource LoadSprite(string relativePath)
+    private IImage LoadSprite(string relativePath)
     {
         if (_spriteCache.TryGetValue(relativePath, out var cached))
         {
             return cached;
         }
 
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri($"pack://application:,,,/{relativePath}", UriKind.Absolute);
-        bitmap.EndInit();
-        bitmap.Freeze();
+        var uri = new Uri($"avares://HighRiskSimulator/{relativePath}", UriKind.Absolute);
+        using var stream = AssetLoader.Open(uri);
+        var bitmap = new Bitmap(stream);
         _spriteCache[relativePath] = bitmap;
         return bitmap;
-    }
-
-
-    private void DrawSkyBackdrop(SimulationSnapshot snapshot)
-    {
-        var skyColor = snapshot.WeatherCondition switch
-        {
-            WeatherCondition.Storm => Color.FromRgb(30, 41, 59),
-            WeatherCondition.Snow => Color.FromRgb(71, 85, 105),
-            WeatherCondition.Fog => Color.FromRgb(100, 116, 139),
-            WeatherCondition.Windy => Color.FromRgb(15, 23, 42),
-            _ => Color.FromRgb(12, 74, 110)
-        };
-
-        var horizonColor = snapshot.WeatherCondition switch
-        {
-            WeatherCondition.Storm => Color.FromRgb(15, 23, 42),
-            WeatherCondition.Snow => Color.FromRgb(51, 65, 85),
-            WeatherCondition.Fog => Color.FromRgb(71, 85, 105),
-            _ => Color.FromRgb(30, 64, 175)
-        };
-
-        var background = new Rectangle
-        {
-            Width = SceneWidth,
-            Height = SceneHeight,
-            Fill = new LinearGradientBrush(skyColor, horizonColor, new Point(0.5, 0), new Point(0.5, 1))
-        };
-        RouteCanvas.Children.Add(background);
-
-        for (var index = 0; index < 28; index++)
-        {
-            var star = new Ellipse
-            {
-                Width = index % 3 == 0 ? 3 : 2,
-                Height = index % 3 == 0 ? 3 : 2,
-                Fill = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255))
-            };
-
-            Canvas.SetLeft(star, 60 + ((index * 53) % 1500));
-            Canvas.SetTop(star, 40 + ((index * 37) % 180));
-            RouteCanvas.Children.Add(star);
-        }
-    }
-
-    private void DrawBackgroundMountains(SimulationSnapshot snapshot, Func<double, double, Point> mapPoint)
-    {
-        var orderedStations = snapshot.Stations.OrderBy(station => station.RoutePositionMeters).ToList();
-        var farMountain = new Polygon
-        {
-            Fill = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
-            Opacity = 0.70,
-            Points = new PointCollection
-            {
-                new(0, SceneHeight),
-                new(0, 520),
-                new(220, 380),
-                new(410, 470),
-                new(620, 310),
-                new(820, 430),
-                new(1070, 270),
-                new(1320, 420),
-                new(1600, 250),
-                new(1600, SceneHeight)
-            }
-        };
-        RouteCanvas.Children.Add(farMountain);
-
-        var nearPoints = new PointCollection { new(0, SceneHeight), new(0, 720) };
-        foreach (var station in orderedStations)
-        {
-            var point = mapPoint(station.RoutePositionMeters, station.AltitudeMeters);
-            nearPoints.Add(new Point(point.X, Math.Min(SceneHeight - 160, point.Y + 120 + ((station.Id % 2) * 18))));
-        }
-
-        nearPoints.Add(new Point(SceneWidth, 760));
-        nearPoints.Add(new Point(SceneWidth, SceneHeight));
-
-        var nearMountain = new Polygon
-        {
-            Fill = new LinearGradientBrush(Color.FromRgb(15, 23, 42), Color.FromRgb(22, 101, 52), new Point(0.5, 0), new Point(0.5, 1)),
-            Opacity = 0.94,
-            Points = nearPoints
-        };
-        RouteCanvas.Children.Add(nearMountain);
-
-        for (var treeIndex = 0; treeIndex < 22; treeIndex++)
-        {
-            var x = 40 + (treeIndex * 70);
-            var canopy = new Polygon
-            {
-                Fill = new SolidColorBrush(Color.FromRgb(16, 85, 55)),
-                Points = new PointCollection
-                {
-                    new(x, 760),
-                    new(x + 18, 720),
-                    new(x + 36, 760)
-                }
-            };
-            RouteCanvas.Children.Add(canopy);
-
-            var trunk = new Rectangle
-            {
-                Width = 7,
-                Height = 24,
-                Fill = new SolidColorBrush(Color.FromRgb(101, 67, 33))
-            };
-            Canvas.SetLeft(trunk, x + 14);
-            Canvas.SetTop(trunk, 760);
-            RouteCanvas.Children.Add(trunk);
-        }
     }
 
     private void DrawAltitudeReference(Func<double, double, Point> mapPoint, double minAltitude, double maxAltitude, double minRoute)
@@ -409,13 +315,10 @@ public partial class MainWindow : Window
 
             var line = new Line
             {
-                X1 = 56,
-                X2 = SceneWidth - 44,
-                Y1 = point.Y,
-                Y2 = point.Y,
+                StartPoint = new Point(56, point.Y),
+                EndPoint = new Point(SceneWidth - 44, point.Y),
                 Stroke = new SolidColorBrush(Color.FromArgb(36, 226, 232, 240)),
-                StrokeThickness = 1,
-                StrokeDashArray = new DoubleCollection { 6, 6 }
+                StrokeThickness = 1
             };
             RouteCanvas.Children.Add(line);
 
@@ -424,7 +327,7 @@ public partial class MainWindow : Window
                 Text = $"{altitude:F0} m",
                 Foreground = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
                 FontSize = 11,
-                FontWeight = FontWeights.SemiBold
+                FontWeight = FontWeight.SemiBold
             };
             Canvas.SetLeft(altitudeText, 18);
             Canvas.SetTop(altitudeText, point.Y - 10);
@@ -440,27 +343,21 @@ public partial class MainWindow : Window
         {
             Stroke = new SolidColorBrush(Color.FromArgb(170, 2, 6, 23)),
             StrokeThickness = 10,
-            StrokeLineJoin = PenLineJoin.Round,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round
+            Points = new Points()
         };
 
         var cable = new Polyline
         {
             Stroke = new SolidColorBrush(IsNightMode(snapshot) ? Color.FromRgb(203, 213, 225) : Color.FromRgb(148, 163, 184)),
             StrokeThickness = 4.2,
-            StrokeLineJoin = PenLineJoin.Round,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round
+            Points = new Points()
         };
 
         var cableHighlight = new Polyline
         {
             Stroke = new SolidColorBrush(Color.FromArgb(160, 226, 232, 240)),
             StrokeThickness = 1.3,
-            StrokeLineJoin = PenLineJoin.Round,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round
+            Points = new Points()
         };
 
         foreach (var station in orderedStations)
@@ -491,7 +388,6 @@ public partial class MainWindow : Window
             RouteCanvas.Children.Add(mast);
         }
     }
-
 
     private void DrawStations(SimulationSnapshot snapshot, Func<double, double, Point> mapPoint)
     {
@@ -526,16 +422,10 @@ public partial class MainWindow : Window
                 Text = station.Name,
                 Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
                 FontSize = isTerminal ? 12.5 : 11.5,
-                FontWeight = FontWeights.SemiBold,
+                FontWeight = FontWeight.SemiBold,
                 TextAlignment = TextAlignment.Center,
                 Width = width + 45,
-                TextWrapping = TextWrapping.Wrap,
-                Effect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    BlurRadius = 4,
-                    ShadowDepth = 1,
-                    Opacity = 0.75
-                }
+                TextWrapping = TextWrapping.Wrap
             };
             Canvas.SetLeft(nameBlock, point.X - ((width + 45) * 0.5));
             Canvas.SetTop(nameBlock, stationTop - 28);
@@ -553,7 +443,7 @@ public partial class MainWindow : Window
                     Text = station.Code,
                     Foreground = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
                     FontSize = 9,
-                    FontWeight = FontWeights.Bold
+                    FontWeight = FontWeight.Bold
                 }
             };
             Canvas.SetLeft(stationStatus, point.X - 28);
@@ -565,7 +455,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private string ResolveStationSpritePath(SimulationSnapshot snapshot, bool isTerminal)
+    private static string ResolveStationSpritePath(SimulationSnapshot snapshot, bool isTerminal)
     {
         var baseFolder = isTerminal ? "main_stations" : "stations";
         var baseName = isTerminal ? "main_station" : "station";
@@ -582,29 +472,19 @@ public partial class MainWindow : Window
             : $"assets/{baseFolder}/{baseName}.png";
     }
 
-
     private void DrawCabins(SimulationSnapshot snapshot, Func<double, double, Point> mapPoint)
     {
+        const double cabinWidth = 66.0;
+        const double cabinHeight = 66.0;
+        const double cableAnchorYOffset = 6.0;
+
         foreach (var cabin in snapshot.Cabins.OrderBy(cabin => cabin.GlobalRoutePositionMeters))
         {
             var point = mapPoint(cabin.GlobalRoutePositionMeters, cabin.AltitudeMeters);
-            var width = 66.0;
-            var height = 66.0;
-            var x = point.X - (width * 0.5);
-            var y = point.Y - 50;
+            var x = point.X - (cabinWidth * 0.5);
+            var y = point.Y - cableAnchorYOffset;
 
-            var support = new Line
-            {
-                X1 = point.X,
-                X2 = point.X,
-                Y1 = point.Y - 34,
-                Y2 = point.Y - 10,
-                Stroke = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
-                StrokeThickness = 3.5
-            };
-            RouteCanvas.Children.Add(support);
-
-            var sprite = CreateSpriteImage(ResolveCabinSpritePath(cabin, snapshot), width, height, Stretch.Uniform, cabin.IsOutOfService ? 0.78 : 1.0);
+            var sprite = CreateSpriteImage(ResolveCabinSpritePath(cabin, snapshot), cabinWidth, cabinHeight, Stretch.Uniform, cabin.IsOutOfService ? 0.78 : 1.0);
             Canvas.SetLeft(sprite, x);
             Canvas.SetTop(sprite, y);
             RouteCanvas.Children.Add(sprite);
@@ -625,7 +505,7 @@ public partial class MainWindow : Window
                             Text = cabin.Code,
                             Foreground = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
                             FontSize = 9.5,
-                            FontWeight = FontWeights.Bold,
+                            FontWeight = FontWeight.Bold,
                             TextAlignment = TextAlignment.Center
                         },
                         new TextBlock
@@ -633,17 +513,17 @@ public partial class MainWindow : Window
                             Text = $"{cabin.PassengerCount}/{cabin.Capacity}",
                             Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
                             FontSize = 9.5,
-                            FontWeight = FontWeights.SemiBold,
+                            FontWeight = FontWeight.SemiBold,
                             TextAlignment = TextAlignment.Center
                         }
                     }
                 }
             };
             Canvas.SetLeft(label, point.X - 26);
-            Canvas.SetTop(label, y + 50);
+            Canvas.SetTop(label, y + cabinHeight - 10);
             RouteCanvas.Children.Add(label);
 
-            DrawStatusIcons(cabin, point.X + 34, y + 6);
+            DrawStatusIcons(cabin, point.X + 34, y + 10);
         }
     }
 
@@ -668,7 +548,6 @@ public partial class MainWindow : Window
 
         return $"assets/cabins/cabin_operative{noLightSuffix}.png";
     }
-
 
     private void DrawStatusIcons(CabinSnapshot cabin, double startX, double y)
     {
@@ -716,10 +595,10 @@ public partial class MainWindow : Window
                 {
                     Text = icons[index].Text,
                     FontSize = 11,
-                    FontWeight = FontWeights.Bold,
+                    FontWeight = FontWeight.Bold,
                     Foreground = new SolidColorBrush(icons[index].Color),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
                     TextAlignment = TextAlignment.Center
                 }
             };
@@ -769,49 +648,12 @@ public partial class MainWindow : Window
         var lightning = new Polygon
         {
             Fill = new SolidColorBrush(Color.FromArgb(225, 250, 204, 21)),
-            Points = new PointCollection
+            Points = new Points
             {
-                new(1210, 110),
-                new(1170, 220),
-                new(1210, 220),
-                new(1178, 330),
-                new(1280, 190),
-                new(1230, 190)
+                new(1210, 110), new(1170, 220), new(1210, 220), new(1178, 330), new(1280, 190), new(1230, 190)
             }
         };
         RouteCanvas.Children.Add(lightning);
-    }
-
-
-    private void DrawWindOverlay()
-    {
-        for (var index = 0; index < 18; index++)
-        {
-            var baseY = 120 + (index * 34);
-            var line = new Path
-            {
-                Stroke = new SolidColorBrush(Color.FromArgb(90, 186, 230, 253)),
-                StrokeThickness = 3,
-                Data = Geometry.Parse($"M {60 + (index * 36)} {baseY} C {120 + (index * 36)} {baseY - 16}, {160 + (index * 36)} {baseY + 16}, {220 + (index * 36)} {baseY}")
-            };
-            RouteCanvas.Children.Add(line);
-        }
-    }
-
-    private void DrawFogOverlay()
-    {
-        for (var index = 0; index < 5; index++)
-        {
-            var fogBand = new Rectangle
-            {
-                Width = SceneWidth,
-                Height = 90,
-                Fill = new SolidColorBrush(Color.FromArgb((byte)(54 + (index * 14)), 241, 245, 249))
-            };
-            Canvas.SetLeft(fogBand, 0);
-            Canvas.SetTop(fogBand, 240 + (index * 70));
-            RouteCanvas.Children.Add(fogBand);
-        }
     }
 
     private void DrawSnowOverlay()
@@ -830,55 +672,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DrawStormOverlay()
-    {
-        for (var index = 0; index < 90; index++)
-        {
-            var drop = new Line
-            {
-                X1 = 20 + ((index * 17) % 1540),
-                X2 = 28 + ((index * 17) % 1540),
-                Y1 = 80 + ((index * 23) % 720),
-                Y2 = 98 + ((index * 23) % 720),
-                Stroke = new SolidColorBrush(Color.FromArgb(165, 125, 211, 252)),
-                StrokeThickness = 2
-            };
-            RouteCanvas.Children.Add(drop);
-        }
-
-        var lightning = new Polygon
-        {
-            Fill = new SolidColorBrush(Color.FromArgb(230, 250, 204, 21)),
-            Points = new PointCollection
-            {
-                new(1210, 110),
-                new(1170, 220),
-                new(1210, 220),
-                new(1178, 330),
-                new(1280, 190),
-                new(1230, 190)
-            }
-        };
-        RouteCanvas.Children.Add(lightning);
-    }
-
     private void DrawSceneHud(SimulationSnapshot snapshot)
     {
-        // 1. PANEL DE RIESGO
-        var riskPanel = CreateHudCard(128, 26, 360, 160, "Resumen de riesgo");
+        var riskPanel = CreateHudCard(230, 76, 450, 180, "Resumen de riesgo");
         RouteCanvas.Children.Add(riskPanel);
-        AddHudText(148, 75, $"Estado: {snapshot.OperationalStateDisplay}", 25, FontWeights.SemiBold);
-        AddHudText(148, 108, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 25, FontWeights.Normal);
-        AddHudText(148, 140, $"Eventos activos: {snapshot.ActiveCriticalIssues}", 25, FontWeights.Normal);
+        AddHudText(258, 130, $"Estado: {snapshot.OperationalStateDisplay}", 22, FontWeight.SemiBold, 380);
+        AddHudText(258, 170, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 22, FontWeight.Normal, 380);
+        AddHudText(258, 208, $"Eventos activos: {snapshot.ActiveCriticalIssues}", 22, FontWeight.Normal, 380);
 
-        // 2. LEYENDA
-        var legendPanel = CreateHudCard(SceneWidth - 360, SceneHeight - 360, 330, 165, "Diagnóstico rápido");
+        const double diagnosisPanelWidth = 430;
+        const double diagnosisPanelHeight = 220;
+        var diagnosisPanelX = SceneWidth - diagnosisPanelWidth - 26;
+        var diagnosisPanelY = SceneHeight - diagnosisPanelHeight - 195;
+        var legendPanel = CreateHudCard(diagnosisPanelX, diagnosisPanelY, diagnosisPanelWidth, diagnosisPanelHeight, "Diagnóstico rápido");
         RouteCanvas.Children.Add(legendPanel);
-        AddLegendChip(SceneWidth - 344, SceneHeight - 312, "⚙ Falla mecánica", Color.FromRgb(234, 88, 12));
-        AddLegendChip(SceneWidth - 344, SceneHeight - 268, "⚡ Falla eléctrica", Color.FromRgb(147, 51, 234));
-        AddLegendChip(SceneWidth - 344, SceneHeight - 224, "■ Frenado / parada", Color.FromRgb(220, 38, 38));
+        AddLegendChip(diagnosisPanelX + 24, diagnosisPanelY + 64, "⚙ Falla mecánica", Color.FromRgb(234, 88, 12));
+        AddLegendChip(diagnosisPanelX + 24, diagnosisPanelY + 116, "⚡ Falla eléctrica", Color.FromRgb(147, 51, 234));
+        AddLegendChip(diagnosisPanelX + 24, diagnosisPanelY + 168, "■ Frenado / parada", Color.FromRgb(220, 38, 38));
     }
-
 
     private Border CreateHudCard(double x, double y, double width, double height, string title)
     {
@@ -886,8 +697,8 @@ public partial class MainWindow : Window
         {
             Text = title,
             Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
-            FontSize = width < 340 ? 21 : 27,
-            FontWeight = FontWeights.Bold,
+            FontSize = width < 420 ? 23 : 27,
+            FontWeight = FontWeight.Bold,
             Margin = new Thickness(14, 10, 14, 0)
         };
 
@@ -902,15 +713,13 @@ public partial class MainWindow : Window
             Child = new Grid()
         };
 
-        var grid = (Grid)card.Child;
-        grid.Children.Add(header);
+        ((Grid)card.Child).Children.Add(header);
         Canvas.SetLeft(card, x);
         Canvas.SetTop(card, y);
         return card;
     }
 
-
-    private void AddHudText(double x, double y, string text, double fontSize, FontWeight weight)
+    private void AddHudText(double x, double y, string text, double fontSize, FontWeight weight, double width)
     {
         var block = new TextBlock
         {
@@ -919,13 +728,12 @@ public partial class MainWindow : Window
             FontSize = fontSize,
             FontWeight = weight,
             TextWrapping = TextWrapping.Wrap,
-            Width = 280
+            Width = width
         };
         Canvas.SetLeft(block, x);
         Canvas.SetTop(block, y);
         RouteCanvas.Children.Add(block);
     }
-
 
     private void AddLegendChip(double x, double y, string text, Color accent)
     {
@@ -935,20 +743,21 @@ public partial class MainWindow : Window
             BorderBrush = new SolidColorBrush(accent),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(10, 5, 10, 5),
+            Padding = new Thickness(12, 6, 12, 6),
+            Width = 270,
             Child = new TextBlock
             {
                 Text = text,
                 Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
-                FontSize = 18,
-                FontWeight = FontWeights.SemiBold
+                FontSize = 16,
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.NoWrap
             }
         };
         Canvas.SetLeft(border, x);
         Canvas.SetTop(border, y);
         RouteCanvas.Children.Add(border);
     }
-
 
     private void DrawQueueBadge(double x, double y, string text, Color accent)
     {
@@ -964,7 +773,7 @@ public partial class MainWindow : Window
                 Text = text,
                 Foreground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
                 FontSize = 11,
-                FontWeight = FontWeights.SemiBold
+                FontWeight = FontWeight.SemiBold
             }
         };
         Canvas.SetLeft(badge, x);
@@ -972,19 +781,17 @@ public partial class MainWindow : Window
         RouteCanvas.Children.Add(badge);
     }
 
-
-
-    private void StartSimulator_Click(object sender, RoutedEventArgs e)
+    private void StartSimulator_Click(object? sender, RoutedEventArgs e)
     {
-        MainMenuOverlay.Visibility = Visibility.Collapsed;
-        TutorialOverlay.Visibility = Visibility.Collapsed;
+        MainMenuOverlay.IsVisible = false;
+        TutorialOverlay.IsVisible = false;
     }
 
-    private void StartTutorial_Click(object sender, RoutedEventArgs e)
+    private void StartTutorial_Click(object? sender, RoutedEventArgs e)
     {
-        MainMenuOverlay.Visibility = Visibility.Collapsed;
-        ReportDialogOverlay.Visibility = Visibility.Collapsed;
-        TutorialOverlay.Visibility = Visibility.Visible;
+        MainMenuOverlay.IsVisible = false;
+        ReportDialogOverlay.IsVisible = false;
+        TutorialOverlay.IsVisible = true;
         _tutorialStepIndex = 0;
         _tutorialWeatherInjected = false;
         _tutorialEventInjected = false;
@@ -1034,39 +841,38 @@ public partial class MainWindow : Window
         _tutorialWeatherInjected = true;
     }
 
-
-    private void ExitApplication_Click(object sender, RoutedEventArgs e)
+    private void ExitApplication_Click(object? sender, RoutedEventArgs e)
     {
         Close();
     }
 
-    private void ExitToMenuButton_Click(object sender, RoutedEventArgs e)
+    private void ExitToMenuButton_Click(object? sender, RoutedEventArgs e)
     {
         if (ViewModel.PauseCommand.CanExecute(null))
         {
             ViewModel.PauseCommand.Execute(null);
         }
 
-        TutorialOverlay.Visibility = Visibility.Collapsed;
-        ReportDialogOverlay.Visibility = Visibility.Collapsed;
-        MainMenuOverlay.Visibility = Visibility.Visible;
+        TutorialOverlay.IsVisible = false;
+        ReportDialogOverlay.IsVisible = false;
+        MainMenuOverlay.IsVisible = true;
     }
 
-    private void OpenReportDialog_Click(object sender, RoutedEventArgs e)
+    private void OpenReportDialog_Click(object? sender, RoutedEventArgs e)
     {
         var defaultDate = ViewModel.SelectedSimulationDate ?? DateTime.Today;
         SingleDayReportOption.IsChecked = true;
         ReportStartDatePicker.SelectedDate = defaultDate;
         ReportEndDatePicker.SelectedDate = defaultDate;
-        ReportDialogOverlay.Visibility = Visibility.Visible;
+        ReportDialogOverlay.IsVisible = true;
     }
 
-    private void CloseReportDialog_Click(object sender, RoutedEventArgs e)
+    private void CloseReportDialog_Click(object? sender, RoutedEventArgs e)
     {
-        ReportDialogOverlay.Visibility = Visibility.Collapsed;
+        ReportDialogOverlay.IsVisible = false;
     }
 
-    private async void GenerateReportFromDialog_Click(object sender, RoutedEventArgs e)
+    private async void GenerateReportFromDialog_Click(object? sender, RoutedEventArgs e)
     {
         GenerateReportButton.IsEnabled = false;
         try
@@ -1078,15 +884,15 @@ public partial class MainWindow : Window
 
             if (DateRangeReportOption.IsChecked == true)
             {
-                await ViewModel.ExportDateRangeReportAsync(startDate, endDate);
+                await ViewModel.ExportDateRangeReportAsync(startDate.Date, endDate.Date);
             }
             else
             {
-                ViewModel.SelectedSimulationDate = startDate;
+                ViewModel.SelectedSimulationDate = startDate.Date;
                 await ViewModel.ExportSingleDayReportAsync();
             }
 
-            ReportDialogOverlay.Visibility = Visibility.Collapsed;
+            ReportDialogOverlay.IsVisible = false;
         }
         finally
         {
@@ -1094,7 +900,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void PreviousTutorialStep_Click(object sender, RoutedEventArgs e)
+    private void PreviousTutorialStep_Click(object? sender, RoutedEventArgs e)
     {
         if (_tutorialStepIndex <= 0)
         {
@@ -1105,7 +911,7 @@ public partial class MainWindow : Window
         UpdateTutorialStep();
     }
 
-    private void NextTutorialStep_Click(object sender, RoutedEventArgs e)
+    private void NextTutorialStep_Click(object? sender, RoutedEventArgs e)
     {
         if (_tutorialStepIndex >= _tutorialSteps.Count - 1)
         {
@@ -1117,15 +923,15 @@ public partial class MainWindow : Window
         UpdateTutorialStep();
     }
 
-    private void EndTutorial_Click(object sender, RoutedEventArgs e)
+    private void EndTutorial_Click(object? sender, RoutedEventArgs e)
     {
         EndTutorial();
     }
 
     private void EndTutorial()
     {
-        TutorialOverlay.Visibility = Visibility.Collapsed;
-        MainMenuOverlay.Visibility = Visibility.Collapsed;
+        TutorialOverlay.IsVisible = false;
+        MainMenuOverlay.IsVisible = false;
     }
 
     private void ConfigureTutorialSteps()
@@ -1138,19 +944,19 @@ public partial class MainWindow : Window
         _tutorialSteps.Add(new TutorialStep(
             "Controles principales",
             "Aquí se inicia, pausa, reinicia, acelera y exporta la jornada. El botón Salir vuelve al menú principal sin cerrar el programa.",
-            new Rect(610, 8, 610, 62),
+            () => GetElementBounds(new Thickness(14), TopControlBar),
             () => SetTutorialMenus(false, false, false)));
 
         _tutorialSteps.Add(new TutorialStep(
             "Configuración de sesión",
             "Este panel define modo, semilla, fecha, aceleración, duración de la jornada y volumen de pasajeros antes de correr el motor.",
-            new Rect(12, 78, 390, 500),
+            () => GetElementBounds(new Thickness(16), SessionConfigurationSection),
             () => SetTutorialMenus(true, false, false)));
 
         _tutorialSteps.Add(new TutorialStep(
             "Inyección de eventos",
             "Los botones fuerzan clima, fallas, sobrecarga o emergencia controlada. En este tour se activa una sobrecarga global controlada para mostrar el registro de eventos.",
-            new Rect(76, 380, 325, 210),
+            () => GetElementBounds(new Thickness(16), InjectionSection),
             () =>
             {
                 SetTutorialMenus(true, false, false);
@@ -1160,25 +966,25 @@ public partial class MainWindow : Window
         _tutorialSteps.Add(new TutorialStep(
             "Riesgos calibrables",
             "El motor de riesgo permite aumentar o reducir probabilidades ambientales y técnicas para generar escenarios de entrenamiento.",
-            new Rect(12, 132, 390, 445),
+            () => GetElementBounds(new Thickness(16), ProbabilityPanel),
             () => SetTutorialMenus(false, true, false)));
 
         _tutorialSteps.Add(new TutorialStep(
             "Telemetría en vivo",
             "La gráfica resume riesgo y ocupación. Las tarjetas de estación muestran pasajeros esperando para identificar cuellos de botella.",
-            new Rect(1265, 88, 320, 520),
+            () => GetElementBounds(new Thickness(18), RightPanel),
             () => SetTutorialMenus(false, false, true)));
 
         _tutorialSteps.Add(new TutorialStep(
             "Terminal operativa",
             "La zona inferior lista eventos, cabinas y estaciones. Es el tablero de lectura rápida para justificar resultados en el reporte.",
-            new Rect(18, 665, 1555, 210),
+            () => GetElementBounds(new Thickness(10), BottomTerminalPanel),
             () => SetTutorialMenus(false, false, false)));
 
         _tutorialSteps.Add(new TutorialStep(
             "Visual Sandbox",
             "La escena muestra estaciones, cabinas, clima y modo día/noche. En este punto se activa neblina para enseñar cómo los frames climáticos se repiten en bucle.",
-            new Rect(430, 115, 760, 505),
+            () => GetElementBounds(new Thickness(18), SceneViewbox),
             () =>
             {
                 SetTutorialMenus(false, false, false);
@@ -1202,15 +1008,119 @@ public partial class MainWindow : Window
         PreviousTutorialButton.IsEnabled = _tutorialStepIndex > 0;
         NextTutorialButton.Content = _tutorialStepIndex >= _tutorialSteps.Count - 1 ? "Finalizar" : "Siguiente";
 
-        TutorialHighlight.Width = step.Highlight.Width;
-        TutorialHighlight.Height = step.Highlight.Height;
-        Canvas.SetLeft(TutorialHighlight, step.Highlight.Left);
-        Canvas.SetTop(TutorialHighlight, step.Highlight.Top);
+        RefreshTutorialOverlayLayout();
+    }
 
-        var cardLeft = Math.Min(Math.Max(step.Highlight.Left + step.Highlight.Width + 22, 40), SceneWidth - 470);
-        var cardTop = Math.Min(Math.Max(step.Highlight.Top, 40), SceneHeight - 260);
+    private async void RefreshTutorialOverlayLayout()
+    {
+        await Dispatcher.UIThread.InvokeAsync(PositionCurrentTutorialStep, DispatcherPriority.Loaded);
+        await Task.Delay(360);
+
+        if (TutorialOverlay.IsVisible)
+        {
+            PositionCurrentTutorialStep();
+        }
+    }
+
+    private void PositionCurrentTutorialStep()
+    {
+        if (_tutorialSteps.Count == 0 || !TutorialOverlay.IsVisible)
+        {
+            return;
+        }
+
+        var step = _tutorialSteps[Math.Clamp(_tutorialStepIndex, 0, _tutorialSteps.Count - 1)];
+        var highlight = step.HighlightResolver();
+        if (!IsUsableRect(highlight))
+        {
+            highlight = new Rect(32, 32, Math.Max(320, RootLayout.Bounds.Width * 0.55), Math.Max(140, RootLayout.Bounds.Height * 0.18));
+        }
+
+        TutorialCanvas.Width = RootLayout.Bounds.Width;
+        TutorialCanvas.Height = RootLayout.Bounds.Height;
+
+        TutorialHighlight.Width = highlight.Width;
+        TutorialHighlight.Height = highlight.Height;
+        Canvas.SetLeft(TutorialHighlight, highlight.Left);
+        Canvas.SetTop(TutorialHighlight, highlight.Top);
+
+        TutorialCard.Measure(new Size(430, double.PositiveInfinity));
+        var cardWidth = Math.Max(430, TutorialCard.DesiredSize.Width);
+        var cardHeight = Math.Max(220, TutorialCard.DesiredSize.Height);
+        var canvasWidth = Math.Max(1, TutorialCanvas.Bounds.Width > 0 ? TutorialCanvas.Bounds.Width : RootLayout.Bounds.Width);
+        var canvasHeight = Math.Max(1, TutorialCanvas.Bounds.Height > 0 ? TutorialCanvas.Bounds.Height : RootLayout.Bounds.Height);
+
+        var cardLeft = highlight.Right + 24;
+        if (cardLeft + cardWidth > canvasWidth - 24)
+        {
+            cardLeft = highlight.Left - cardWidth - 24;
+        }
+        if (cardLeft < 24)
+        {
+            cardLeft = Math.Max(24, canvasWidth - cardWidth - 24);
+        }
+
+        var cardTop = highlight.Top;
+        if (cardTop + cardHeight > canvasHeight - 24)
+        {
+            cardTop = Math.Max(24, highlight.Bottom - cardHeight);
+        }
+        cardTop = Math.Min(cardTop, Math.Max(24, canvasHeight - cardHeight - 24));
+
         Canvas.SetLeft(TutorialCard, cardLeft);
         Canvas.SetTop(TutorialCard, cardTop);
+    }
+
+    private Rect GetElementBounds(Thickness padding, params Control[] elements)
+    {
+        Rect? bounds = null;
+
+        foreach (var element in elements)
+        {
+            if (element is null || element.Bounds.Width <= 0 || element.Bounds.Height <= 0)
+            {
+                continue;
+            }
+
+            var topLeft = element.TranslatePoint(new Point(0, 0), RootLayout);
+            if (topLeft is null)
+            {
+                continue;
+            }
+
+            var rect = new Rect(topLeft.Value, element.Bounds.Size);
+            bounds = bounds.HasValue ? UnionRects(bounds.Value, rect) : rect;
+        }
+
+        if (!bounds.HasValue)
+        {
+            return default;
+        }
+
+        return new Rect(
+            Math.Max(0, bounds.Value.Left - padding.Left),
+            Math.Max(0, bounds.Value.Top - padding.Top),
+            bounds.Value.Width + padding.Left + padding.Right,
+            bounds.Value.Height + padding.Top + padding.Bottom);
+    }
+
+    private static bool IsUsableRect(Rect rect)
+    {
+        return rect.Width > 1
+            && rect.Height > 1
+            && !double.IsNaN(rect.X)
+            && !double.IsNaN(rect.Y)
+            && !double.IsNaN(rect.Width)
+            && !double.IsNaN(rect.Height);
+    }
+
+    private static Rect UnionRects(Rect first, Rect second)
+    {
+        var left = Math.Min(first.Left, second.Left);
+        var top = Math.Min(first.Top, second.Top);
+        var right = Math.Max(first.Right, second.Right);
+        var bottom = Math.Max(first.Bottom, second.Bottom);
+        return new Rect(left, top, right - left, bottom - top);
     }
 
     private void SetTutorialMenus(bool showTriggerMenu, bool showRiskMenu, bool showTelemetryMenu)
@@ -1220,30 +1130,5 @@ public partial class MainWindow : Window
         TelemetryMenuToggleButton.IsChecked = showTelemetryMenu;
     }
 
-    private sealed record TutorialStep(string Title, string Body, Rect Highlight, Action? EnterAction);
-
-    private static Brush ResolveCabinBrush(CabinSnapshot cabin)
-    {
-        if (cabin.IsOutOfService)
-        {
-            return new SolidColorBrush(Color.FromRgb(100, 116, 139));
-        }
-
-        if (cabin.HasMechanicalFailure || cabin.HasElectricalFailure)
-        {
-            return new SolidColorBrush(Color.FromRgb(239, 68, 68));
-        }
-
-        if (cabin.HasEmergencyBrake || cabin.OperationalState is CabinOperationalState.Braking or CabinOperationalState.EmergencyBraking)
-        {
-            return new SolidColorBrush(Color.FromRgb(245, 158, 11));
-        }
-
-        if (cabin.AlertLevel == CabinAlertLevel.Alert)
-        {
-            return new SolidColorBrush(Color.FromRgb(96, 165, 250));
-        }
-
-        return new SolidColorBrush(Color.FromRgb(34, 197, 94));
-    }
+    private sealed record TutorialStep(string Title, string Body, Func<Rect> HighlightResolver, Action? EnterAction);
 }

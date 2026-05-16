@@ -1,7 +1,7 @@
 # HighRisk Simulator
 >Sistema de Apoyo a la Decisión (DSS) y Modelado Estocástico
 
-Simulador estadístico-operativo del teleférico Mukumbarí construido sobre **.NET 8 + WPF**, rediseñado para entregar una jornada más realista, una interfaz mucho más clara y una base sólida. Esta aplicación esta desarollada en C#, con ScottPlot.WPF para telemetria temporal y QuestPDF para reporte multipáginas como dependencias.
+Simulador estadístico-operativo del teleférico Mukumbarí construido sobre **.NET 8 + Avalonia UI**, rediseñado para entregar una jornada más realista, una interfaz mucho más clara y una base sólida. Esta aplicación esta desarollada en C#, con ScottPlot.Avalonia para telemetria temporal y QuestPDF para reporte multipáginas como dependencias.
 
 La operación en alta montaña es inherentemente volátil. Los cambios climáticos abruptos, los picos de demanda y la fatiga de componentes eléctricos/mecánicos generan un escenario de toma de decisiones crítico. Probar cambios en la velocidad de despacho o protocolos de emergencia directamente en la infraestructura real es inviable por razones de seguridad y presupuesto.
 
@@ -20,10 +20,10 @@ El simulador actúa como un gemelo digital funcional que permite:
 - **Sprites y tutorial:** Menú inicial, feature tour y escena con sprites día/noche, clima animado y assets organizados en `assets/`.
 
 # Instalación y Ejecución
-**Compatibilidad:** Este simulador utiliza WPF, por lo que es exclusivo para Windows 10/11. No es compatible nativamente con Linux o macOS.
+**Compatibilidad:** La interfaz fue migrada a Avalonia UI sobre .NET 8, por lo que el proyecto queda preparado para ejecutarse en Windows, GNU/Linux y macOS con el runtime correspondiente.
 
 ## Método rápido (Usuario)
-Si solo deseas probar el simulador sin configurar el entorno de desarrollo ve al apartado de [Releases](https://github.com/IvanDobobuto/HighRisk-Simulator/releases) en este repositorio, descarga la última versión disponible (archivo .zip), descomprime el contenido en una carpeta local y ejecuta el archivo llamado HighRiskSimulator.exe.
+Si solo deseas probar el simulador sin configurar el entorno de desarrollo ve al apartado de [Releases](https://github.com/IvanDobobuto/HighRisk-Simulator/releases) en este repositorio, descarga la última versión disponible para tu sistema operativo, descomprime el contenido en una carpeta local y ejecuta el binario correspondiente.
 
 ## Compilación con Visual Studio
 1.	Clona el repositorio:
@@ -31,8 +31,8 @@ Si solo deseas probar el simulador sin configurar el entorno de desarrollo ve al
 git clone https://github.com/IvanDobobuto/HighRisk-Simulator
 ```
 2.	Abre el archivo de solución .sln o el proyecto .csproj con Visual Studio 2022.
-3.  Asegúrate de tener instalada la carga de trabajo "Desarrollo de escritorio de .NET".
-4.  Visual Studio restaurará automáticamente los paquetes de ScottPlot y QuestPDF.
+3.  Asegúrate de tener instalado el SDK de .NET 8 y las cargas necesarias para restaurar paquetes NuGet.
+4.  Visual Studio restaurará automáticamente los paquetes de Avalonia UI, ScottPlot y QuestPDF.
 5.  Presiona F5 para compilar y lanzar la aplicación.
 
 ## Compilación vía CLI
@@ -52,8 +52,8 @@ dotnet run --project HighRiskSimulator
 ```
 # Dependencias
 El simulador utiliza un stack moderno de .NET enfocado en alto rendimiento y visualización de datos:
-- **.NET 8.0 WPF:** Framework base para la interfaz de usuario y el motor de ejecución.
-- **ScottPlot.WPF:** Motor de telemetría de alto desempeño para el renderizado de gráficos en tiempo real.
+- **.NET 8.0 Avalonia UI:** Framework base para la interfaz de usuario y el motor de ejecución.
+- **ScottPlot.Avalonia:** Motor de telemetría de alto desempeño para el renderizado de gráficos en tiempo real.
 - **QuestPDF:** Motor de maquetación para la generación de reportes técnicos detallados.
 
 ---

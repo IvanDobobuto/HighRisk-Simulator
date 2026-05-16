@@ -60,7 +60,7 @@ La pila enlazada representa LIFO de forma simple y evita realocaciones grandes c
 
 `Stack<T>` sería suficiente en producción, pero la asignatura exige justificar e implementar estructuras propias. La versión enlazada permite demostrar comprensión de nodos, referencias y operaciones LIFO.
 
-## Colecciones observables en WPF
+## Colecciones observables en Avalonia UI
 
 ### Problema
 
@@ -68,7 +68,7 @@ La UI necesita refrescar tablas de eventos, cabinas y estaciones cuando llega ca
 
 ### Justificación
 
-`ObservableCollection<T>` notifica cambios al binding de WPF. Por eso se usa solo en la capa de presentación, no dentro del motor.
+`ObservableCollection<T>` notifica cambios al binding de Avalonia. Por eso se usa solo en la capa de presentación, no dentro del motor.
 
 ## Separación entre entidades y snapshots
 

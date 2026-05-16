@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Threading;
+using Avalonia.Threading;
 using HighRiskSimulator.Core.Domain;
 using HighRiskSimulator.Core.Domain.Models;
 using HighRiskSimulator.Core.Simulation;
@@ -119,8 +119,8 @@ public sealed class MainViewModel : BaseViewModel
 
         InjectionTargetOptions = new ObservableCollection<SelectionOption>();
         EventLog = new ObservableCollection<SimulationEvent>();
-        CabinStates = new ObservableCollection<CabinSnapshot>();
-        StationStates = new ObservableCollection<StationSnapshot>();
+        CabinStates = new ObservableCollection<CabinStateRowViewModel>();
+        StationStates = new ObservableCollection<StationStateRowViewModel>();
         ToastNotifications = new ObservableCollection<ToastNotification>();
 
         _selectedMode = SimulationModes.First();
@@ -167,9 +167,9 @@ public sealed class MainViewModel : BaseViewModel
 
     public ObservableCollection<SimulationEvent> EventLog { get; }
 
-    public ObservableCollection<CabinSnapshot> CabinStates { get; }
+    public ObservableCollection<CabinStateRowViewModel> CabinStates { get; }
 
-    public ObservableCollection<StationSnapshot> StationStates { get; }
+    public ObservableCollection<StationStateRowViewModel> StationStates { get; }
 
     public ObservableCollection<ToastNotification> ToastNotifications { get; }
 
@@ -1195,8 +1195,8 @@ public sealed class MainViewModel : BaseViewModel
         StationTelemetrySummaryText = BuildStationTelemetrySummary(snapshot.Stations);
 
         SynchronizeCollection(EventLog, snapshot.RecentEvents);
-        SynchronizeCollection(CabinStates, snapshot.Cabins);
-        SynchronizeCollection(StationStates, snapshot.Stations);
+        SynchronizeCabinStates(snapshot.Cabins);
+        SynchronizeStationStates(snapshot.Stations);
         RefreshInjectionTargets(snapshot);
 
         SnapshotUpdated?.Invoke(this, snapshot);
@@ -1376,11 +1376,149 @@ public sealed class MainViewModel : BaseViewModel
 
     private static void SynchronizeCollection<T>(ObservableCollection<T> target, IEnumerable<T> source)
     {
-        target.Clear();
+        var items = source.ToList();
+        var sharedCount = Math.Min(target.Count, items.Count);
 
-        foreach (var item in source)
+        for (var index = 0; index < sharedCount; index++)
         {
-            target.Add(item);
+            if (!EqualityComparer<T>.Default.Equals(target[index], items[index]))
+            {
+                target[index] = items[index];
+            }
         }
+
+        while (target.Count > items.Count)
+        {
+            target.RemoveAt(target.Count - 1);
+        }
+
+        for (var index = sharedCount; index < items.Count; index++)
+        {
+            target.Add(items[index]);
+        }
+    }
+
+    private void SynchronizeCabinStates(IReadOnlyList<CabinSnapshot> snapshots)
+    {
+        if (!CabinStates.Select(row => row.Id).SequenceEqual(snapshots.Select(snapshot => snapshot.Id)))
+        {
+            CabinStates.Clear();
+            foreach (var snapshot in snapshots)
+            {
+                CabinStates.Add(new CabinStateRowViewModel(snapshot));
+            }
+
+            return;
+        }
+
+        for (var index = 0; index < snapshots.Count; index++)
+        {
+            CabinStates[index].UpdateFrom(snapshots[index]);
+        }
+    }
+
+    private void SynchronizeStationStates(IReadOnlyList<StationSnapshot> snapshots)
+    {
+        if (!StationStates.Select(row => row.Id).SequenceEqual(snapshots.Select(snapshot => snapshot.Id)))
+        {
+            StationStates.Clear();
+            foreach (var snapshot in snapshots)
+            {
+                StationStates.Add(new StationStateRowViewModel(snapshot));
+            }
+
+            return;
+        }
+
+        for (var index = 0; index < snapshots.Count; index++)
+        {
+            StationStates[index].UpdateFrom(snapshots[index]);
+        }
+    }
+}
+
+public sealed class CabinStateRowViewModel : BaseViewModel
+{
+    private int _id;
+    private string _code = string.Empty;
+    private string _segmentName = string.Empty;
+    private string _compactOccupancyLabel = string.Empty;
+    private double _velocityMetersPerSecond;
+    private string _operationalStateDisplay = string.Empty;
+    private string _healthSummaryDisplay = string.Empty;
+    private string _alertLevelDisplay = string.Empty;
+
+    public CabinStateRowViewModel(CabinSnapshot snapshot)
+    {
+        UpdateFrom(snapshot);
+    }
+
+    public int Id { get => _id; private set => SetProperty(ref _id, value); }
+
+    public string Code { get => _code; private set => SetProperty(ref _code, value); }
+
+    public string SegmentName { get => _segmentName; private set => SetProperty(ref _segmentName, value); }
+
+    public string CompactOccupancyLabel { get => _compactOccupancyLabel; private set => SetProperty(ref _compactOccupancyLabel, value); }
+
+    public double VelocityMetersPerSecond { get => _velocityMetersPerSecond; private set => SetProperty(ref _velocityMetersPerSecond, value); }
+
+    public string OperationalStateDisplay { get => _operationalStateDisplay; private set => SetProperty(ref _operationalStateDisplay, value); }
+
+    public string HealthSummaryDisplay { get => _healthSummaryDisplay; private set => SetProperty(ref _healthSummaryDisplay, value); }
+
+    public string AlertLevelDisplay { get => _alertLevelDisplay; private set => SetProperty(ref _alertLevelDisplay, value); }
+
+    public void UpdateFrom(CabinSnapshot snapshot)
+    {
+        Id = snapshot.Id;
+        Code = snapshot.Code;
+        SegmentName = snapshot.SegmentName;
+        CompactOccupancyLabel = snapshot.CompactOccupancyLabel;
+        VelocityMetersPerSecond = snapshot.VelocityMetersPerSecond;
+        OperationalStateDisplay = snapshot.OperationalStateDisplay;
+        HealthSummaryDisplay = snapshot.HealthSummaryDisplay;
+        AlertLevelDisplay = snapshot.AlertLevelDisplay;
+    }
+}
+
+public sealed class StationStateRowViewModel : BaseViewModel
+{
+    private int _id;
+    private string _name = string.Empty;
+    private int _totalWaitingPassengers;
+    private double _altitudeMeters;
+    private int _waitingAscendingPassengers;
+    private int _waitingDescendingPassengers;
+    private string _boardingRulesDisplay = string.Empty;
+
+    public StationStateRowViewModel(StationSnapshot snapshot)
+    {
+        UpdateFrom(snapshot);
+    }
+
+    public int Id { get => _id; private set => SetProperty(ref _id, value); }
+
+    public string Name { get => _name; private set => SetProperty(ref _name, value); }
+
+    public int TotalWaitingPassengers { get => _totalWaitingPassengers; private set => SetProperty(ref _totalWaitingPassengers, value); }
+
+    public double AltitudeMeters { get => _altitudeMeters; private set => SetProperty(ref _altitudeMeters, value); }
+
+    public int WaitingAscendingPassengers { get => _waitingAscendingPassengers; private set => SetProperty(ref _waitingAscendingPassengers, value); }
+
+    public int WaitingDescendingPassengers { get => _waitingDescendingPassengers; private set => SetProperty(ref _waitingDescendingPassengers, value); }
+
+    public string BoardingRulesDisplay { get => _boardingRulesDisplay; private set => SetProperty(ref _boardingRulesDisplay, value); }
+
+    public void UpdateFrom(StationSnapshot snapshot)
+    {
+        Id = snapshot.Id;
+        Name = snapshot.Name;
+        TotalWaitingPassengers = snapshot.TotalWaitingPassengers;
+        AltitudeMeters = snapshot.AltitudeMeters;
+        WaitingAscendingPassengers = snapshot.WaitingAscendingPassengers;
+        WaitingDescendingPassengers = snapshot.WaitingDescendingPassengers;
+        BoardingRulesDisplay = snapshot.BoardingRulesDisplay;
     }
 }

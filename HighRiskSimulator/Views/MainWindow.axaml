@@ -1,0 +1,391 @@
+<Window x:Class="HighRiskSimulator.Views.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ScottPlot="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
+        Title="HighRisk Simulator"
+        Width="1440"
+        Height="920"
+        MinWidth="800"
+        MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        Background="#0A0F1C">
+
+    <Window.Styles>
+        <Style Selector="Border.game-panel">
+            <Setter Property="Background" Value="#CC0F172A" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="BorderBrush" Value="#334155" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+
+        <Style Selector="Button.playback">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.dialog">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.menu-button">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="Black" />
+            <Setter Property="MinWidth" Value="420" />
+            <Setter Property="Height" Value="58" />
+            <Setter Property="Margin" Value="0,8" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="ToggleButton.side-toggle">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#1E293B" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBlock.panel-title">
+            <Setter Property="FontWeight" Value="Black" />
+            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <Style Selector="TextBlock.field-title">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#64748B" />
+            <Setter Property="FontSize" Value="10" />
+        </Style>
+
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="GridLinesVisibility" Value="None" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="CanUserReorderColumns" Value="False" />
+            <Setter Property="CanUserSortColumns" Value="False" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="RowHeight" Value="30" />
+        </Style>
+    </Window.Styles>
+
+    <Grid x:Name="RootLayout" ClipToBounds="True">
+        <Viewbox x:Name="SceneViewbox" Stretch="Uniform" Margin="0,0,0,220">
+            <Canvas x:Name="RouteCanvas" Width="1600" Height="900" Background="#0A0F1C" />
+        </Viewbox>
+
+        <Border x:Name="TopControlBar" Classes="game-panel" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,10,0,0" Padding="24,8" ZIndex="20">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="MUKUMBARÍ" FontWeight="Black" FontSize="18" Foreground="#38BDF8" VerticalAlignment="Center" />
+                <Rectangle Width="1" Height="20" Fill="#334155" Margin="20,0" />
+                <TextBlock Text="TIEMPO:" FontSize="12" Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Text="{Binding ElapsedText}" FontSize="18" FontWeight="Bold" Width="80" VerticalAlignment="Center" />
+                <Rectangle Width="1" Height="20" Fill="#334155" Margin="10,0,20,0" />
+                <TextBlock Text="RIESGO:" FontSize="12" Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Text="{Binding CurrentRiskText}" FontSize="18" FontWeight="Bold" Foreground="#EF4444" VerticalAlignment="Center" MinWidth="76" />
+                <Rectangle Width="1" Height="20" Fill="#334155" Margin="20,0,20,0" />
+                <Button Content="▶ INICIAR" Command="{Binding StartCommand}" Background="#16A34A" Classes="playback" />
+                <Button Content="⏸ PAUSA" Command="{Binding PauseCommand}" Background="#CA8A04" Classes="playback" />
+                <Button Content="⏹ RESET" Command="{Binding ResetCommand}" Background="#DC2626" Classes="playback" />
+                <Button Content="🚀 SIMULACIÓN" Command="{Binding InstantSimulationCommand}" Background="Purple" Classes="playback" Margin="0,0,20,0" />
+                <Button Content="📄 REPORTE" Click="OpenReportDialog_Click" Background="#2563EB" Classes="playback" />
+                <Button Content="↩ SALIR" Click="ExitToMenuButton_Click" Background="#0F766E" Classes="playback" />
+            </StackPanel>
+        </Border>
+
+        <Grid HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="20,80,0,50" ZIndex="50">
+            <StackPanel Width="48" HorizontalAlignment="Left" VerticalAlignment="Top" ZIndex="60">
+                <ToggleButton x:Name="TriggerMenuToggleButton" Click="TriggerMenuToggleButton_Click" Classes="side-toggle" BorderBrush="#38BDF8" Content="⚡" ToolTip.Tip="Inyección rápida de eventos" />
+                <ToggleButton x:Name="RiskMenuToggleButton" Click="RiskMenuToggleButton_Click" Classes="side-toggle" BorderBrush="#8B5CF6" Content="🎲" Margin="0,10,0,0" ToolTip.Tip="Configuración de riesgos" />
+            </StackPanel>
+
+            <Border x:Name="LeftPanel" Classes="game-panel" Width="372" Margin="60,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" MaxHeight="720" IsVisible="{Binding #TriggerMenuToggleButton.IsChecked}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,0,12,0">
+                        <StackPanel x:Name="SessionConfigurationSection">
+                            <TextBlock Text="CONFIGURACIÓN DE SESIÓN" Classes="panel-title" />
+                            <ComboBox ItemsSource="{Binding SimulationModes}" SelectedItem="{Binding SelectedMode}" Margin="0,0,0,10" />
+                            <TextBlock Text="SEMILLA ALEATORIA" Classes="field-title" />
+                            <TextBox Text="{Binding RandomSeed, Mode=TwoWay}" Margin="0,5,0,12" Padding="8,5" Background="#E5E7EB" Foreground="#0F172A" BorderThickness="0" />
+                            <TextBlock Text="FECHA DE SIMULACIÓN" Classes="field-title" />
+                            <CalendarDatePicker SelectedDate="{Binding SelectedSimulationDate, Mode=TwoWay}" Margin="0,5,0,12" />
+                            <TextBlock Text="ACELERACIÓN DE TIEMPO" Classes="field-title" />
+                            <Grid Margin="0,5,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="72" />
+                                </Grid.ColumnDefinitions>
+                                <Slider Minimum="1" Maximum="50" Value="{Binding ManualTimeScale, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="1" Text="{Binding ManualTimeScaleText}" FontWeight="Bold" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Text="DURACIÓN DE JORNADA" Classes="field-title" />
+                            <Grid Margin="0,5,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="72" />
+                                </Grid.ColumnDefinitions>
+                                <Slider Minimum="10" Maximum="16" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding ServiceDurationHours, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="1" Text="{Binding ServiceDurationHoursText}" FontWeight="Bold" Foreground="#38BDF8" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Text="VOLUMEN DE PASAJEROS" Classes="field-title" />
+                            <Grid Margin="0,5,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="72" />
+                                </Grid.ColumnDefinitions>
+                                <Slider Minimum="0.25" Maximum="3" Value="{Binding PassengerArrivalMultiplier, Mode=TwoWay}" TickFrequency="0.05" />
+                                <TextBlock Grid.Column="1" Text="{Binding PassengerArrivalMultiplierText}" FontSize="11" FontWeight="Bold" Foreground="#22C55E" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                            <Separator Background="#334155" Margin="0,5,0,15" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="InjectionSection" Margin="0,0,0,4">
+                            <TextBlock Text="INYECCIÓN" FontWeight="Bold" Foreground="#94A3B8" Margin="0,20,0,12" />
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="35,35,35,35,40" RowSpacing="6" ColumnSpacing="8">
+                                <Button Grid.Row="0" Grid.Column="0" Content="Tormenta" Command="{Binding InjectStormCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="0" Grid.Column="1" Content="Viento" Command="{Binding InjectStrongWindCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="1" Grid.Column="0" Content="Neblina" Command="{Binding InjectFogCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="1" Grid.Column="1" Content="Falla eléctrica" Command="{Binding InjectElectricalFailureCommand}" Background="#B45309" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="2" Grid.Column="0" Content="Pico de Tensión" Command="{Binding InjectVoltageSpikeCommand}" Background="#92400E" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="2" Grid.Column="1" Content="Desgaste" Command="{Binding InjectPulleyWearCommand}" Background="#475569" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="3" Grid.Column="0" Content="Sobrecarga" Command="{Binding InjectOverloadCommand}" Background="#991B1B" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="3" Grid.Column="1" Content="Falla mecánica" Command="{Binding InjectMechanicalFailureCommand}" Background="#7F1D1D" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Content="Emergencia" Command="{Binding InjectEmergencyStopCommand}" Background="#DC2626" Foreground="White" FontWeight="Black" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border x:Name="ProbabilityPanel" Classes="game-panel" Width="372" Margin="60,60,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" MaxHeight="560" IsVisible="{Binding #RiskMenuToggleButton.IsChecked}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="CONFIGURACIÓN DE RIESGOS" Classes="panel-title" />
+                        <Border Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,0,0,20" BorderBrush="#8B5CF6" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="MULTIPLICADOR GLOBAL DE RIESGO" FontWeight="Bold" Foreground="#A78BFA" FontSize="10" />
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="45" />
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Minimum="0" Maximum="5" Value="{Binding GlobalRiskMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" />
+                                    <TextBlock Grid.Column="1" Text="{Binding GlobalRiskMultiplier, StringFormat={}{0:F1}x}" FontWeight="Black" Foreground="White" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="VARIABLES AMBIENTALES" Classes="field-title" Margin="0,0,0,10" />
+                        <TextBlock Text="Tormenta" FontSize="11" Foreground="#CBD5E1" />
+                        <Grid Margin="0,2,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /></Grid.ColumnDefinitions><Slider Minimum="0" Maximum="100" Value="{Binding StormProbabilityMultiplier, Mode=TwoWay}" /><TextBlock Grid.Column="1" Text="{Binding StormProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#38BDF8" FontWeight="Bold" HorizontalAlignment="Right" /></Grid>
+                        <TextBlock Text="Ráfagas de Viento" FontSize="11" Foreground="#CBD5E1" />
+                        <Grid Margin="0,2,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /></Grid.ColumnDefinitions><Slider Minimum="0" Maximum="100" Value="{Binding WindProbabilityMultiplier, Mode=TwoWay}" /><TextBlock Grid.Column="1" Text="{Binding WindProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#38BDF8" FontWeight="Bold" HorizontalAlignment="Right" /></Grid>
+                        <TextBlock Text="Neblina Densa" FontSize="11" Foreground="#CBD5E1" />
+                        <Grid Margin="0,2,0,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /></Grid.ColumnDefinitions><Slider Minimum="0" Maximum="100" Value="{Binding FogProbabilityMultiplier, Mode=TwoWay}" /><TextBlock Grid.Column="1" Text="{Binding FogProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#38BDF8" FontWeight="Bold" HorizontalAlignment="Right" /></Grid>
+                        <TextBlock Text="VARIABLES DE SISTEMA" Classes="field-title" Margin="0,0,0,10" />
+                        <TextBlock Text="Fallas Eléctricas" FontSize="11" Foreground="#CBD5E1" />
+                        <Grid Margin="0,2,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /></Grid.ColumnDefinitions><Slider Minimum="0" Maximum="100" Value="{Binding PowerOutageProbabilityMultiplier, Mode=TwoWay}" /><TextBlock Grid.Column="1" Text="{Binding PowerOutageProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#FBBF24" FontWeight="Bold" HorizontalAlignment="Right" /></Grid>
+                        <TextBlock Text="Picos de tensión" FontSize="11" Foreground="#CBD5E1" />
+                        <Grid Margin="0,2,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /></Grid.ColumnDefinitions><Slider Minimum="0" Maximum="100" Value="{Binding VoltageSpikeProbabilityMultiplier, Mode=TwoWay}" /><TextBlock Grid.Column="1" Text="{Binding VoltageSpikeProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#FBBF24" FontWeight="Bold" HorizontalAlignment="Right" /></Grid>
+                        <TextBlock Text="Fallas Mecánicas" FontSize="11" Foreground="#CBD5E1" />
+                        <Grid Margin="0,2,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /></Grid.ColumnDefinitions><Slider Minimum="0" Maximum="100" Value="{Binding CabinMechanicalFailureProbabilityMultiplier, Mode=TwoWay}" /><TextBlock Grid.Column="1" Text="{Binding CabinMechanicalFailureProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#FBBF24" FontWeight="Bold" HorizontalAlignment="Right" /></Grid>
+                        <TextBlock Text="Desgaste" FontSize="11" Foreground="#CBD5E1" />
+                        <Grid Margin="0,2,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /></Grid.ColumnDefinitions><Slider Minimum="0" Maximum="100" Value="{Binding MechanicalWearProbabilityMultiplier, Mode=TwoWay}" /><TextBlock Grid.Column="1" Text="{Binding MechanicalWearProbabilityMultiplier, StringFormat={}{0:N0}%}" Foreground="#FBBF24" FontWeight="Bold" HorizontalAlignment="Right" /></Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Grid HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,80,20,50" ZIndex="50">
+            <ToggleButton x:Name="TelemetryMenuToggleButton" Classes="side-toggle" Width="48" Height="48" HorizontalAlignment="Right" VerticalAlignment="Top" BorderBrush="#38BDF8" Content="📊" ToolTip.Tip="Telemetría en vivo" />
+            <Border x:Name="RightPanel" Classes="game-panel" Width="380" Margin="0,60,10,0" HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="{Binding #TelemetryMenuToggleButton.IsChecked}">
+                <Grid RowDefinitions="Auto,275,Auto,*">
+                    <TextBlock Text="TELEMETRÍA EN VIVO" Classes="panel-title" />
+                    <Grid Grid.Row="1" Margin="0,4,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Escala (%)" Grid.Column="0" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform Angle="-90" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                        <ScottPlot:AvaPlot x:Name="MetricsPlot" Grid.Column="1" />
+                    </Grid>
+                    <Grid Grid.Row="2" Margin="22,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Tiempo simulado (s)" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                        <Button Grid.Column="1" Content="− Zoom" Click="TelemetryZoomOut_Click" Classes="playback" Background="#334155" Margin="6,0,4,0" />
+                        <Button Grid.Column="2" Content="+ Zoom" Click="TelemetryZoomIn_Click" Classes="playback" Background="#334155" Margin="0" />
+                    </Grid>
+                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" MaxHeight="330">
+                        <ItemsControl ItemsSource="{Binding StationStates}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,0,0,6">
+                                        <DockPanel>
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding TotalWaitingPassengers, StringFormat={}Pax: {0}}" DockPanel.Dock="Right" Foreground="#38BDF8" HorizontalAlignment="Right" />
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border x:Name="BottomTerminalPanel" Classes="game-panel" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Margin="20,0,20,20" Height="220" ZIndex="30">
+            <Grid ColumnDefinitions="150,*">
+                <StackPanel VerticalAlignment="Top" Margin="5,14,20,0">
+                    <TextBlock Text="TERMINAL" FontWeight="Black" FontSize="10" Foreground="#38BDF8" Opacity="0.8" Margin="0,0,0,15" />
+                    <TextBlock Text="PASAJEROS" FontWeight="Bold" FontSize="9" Foreground="#94A3B8" />
+                    <TextBlock Text="{Binding ProcessedPassengersText}" FontSize="24" FontWeight="Black" Foreground="White" />
+                    <Separator Background="#334155" />
+                    <TextBlock Text="ESTADO" FontWeight="Bold" FontSize="9" Foreground="#94A3B8" />
+                    <TextBlock Text="OPERATIVO" Foreground="#22C55E" FontWeight="Bold" FontSize="12" />
+                </StackPanel>
+                <TabControl Grid.Column="1" Background="Transparent" BorderThickness="0">
+                    <TabItem Header="Eventos">
+                        <DataGrid ItemsSource="{Binding EventLog}" AutoGenerateColumns="False" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Hora" Binding="{Binding OccurredAtDisplay}" Width="90" />
+                                <DataGridTextColumn Header="Severidad" Binding="{Binding SeverityDisplay}" Width="100" />
+                                <DataGridTextColumn Header="Tipo" Binding="{Binding TypeDisplay}" Width="120" />
+                                <DataGridTextColumn Header="Título" Binding="{Binding Title}" Width="*" />
+                                <DataGridTextColumn Header="Fuente" Binding="{Binding SourceTag}" Width="140" />
+                                <DataGridTextColumn Header="Δ Riesgo" Binding="{Binding RiskDelta, StringFormat={}{0:F2}}" Width="80" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </TabItem>
+                    <TabItem Header="Cabinas">
+                        <DataGrid ItemsSource="{Binding CabinStates}" AutoGenerateColumns="False" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Binding="{Binding Code}" Width="80" />
+                                <DataGridTextColumn Header="Tramo" Binding="{Binding SegmentName}" Width="170" />
+                                <DataGridTextColumn Header="Ocupación" Binding="{Binding CompactOccupancyLabel}" Width="120" />
+                                <DataGridTextColumn Header="Velocidad" Binding="{Binding VelocityMetersPerSecond, StringFormat={}{0:F1} m/s}" Width="100" />
+                                <DataGridTextColumn Header="Estado operativo" Binding="{Binding OperationalStateDisplay}" Width="170" />
+                                <DataGridTextColumn Header="Salud" Binding="{Binding HealthSummaryDisplay}" Width="260" />
+                                <DataGridTextColumn Header="Alerta" Binding="{Binding AlertLevelDisplay}" Width="120" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </TabItem>
+                    <TabItem Header="Estaciones">
+                        <DataGrid ItemsSource="{Binding StationStates}" AutoGenerateColumns="False" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Estación" Binding="{Binding Name}" Width="180" />
+                                <DataGridTextColumn Header="Pax en espera" Binding="{Binding TotalWaitingPassengers}" Width="120" />
+                                <DataGridTextColumn Header="Altitud" Binding="{Binding AltitudeMeters, StringFormat={}{0:F0} m}" Width="90" />
+                                <DataGridTextColumn Header="Ascenso" Binding="{Binding WaitingAscendingPassengers}" Width="90" />
+                                <DataGridTextColumn Header="Descenso" Binding="{Binding WaitingDescendingPassengers}" Width="95" />
+                                <DataGridTextColumn Header="Regla" Binding="{Binding BoardingRulesDisplay}" Width="190" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Border>
+
+        <ItemsControl ItemsSource="{Binding ToastNotifications}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,94,10,0" MaxHeight="700" ClipToBounds="True" ZIndex="100">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="#E60F172A" BorderBrush="{Binding AccentColor}" BorderThickness="3,0,0,0" CornerRadius="4" Padding="15,12" Margin="0,0,0,10" Width="300">
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock Text="{Binding IconGlyph}" FontSize="16" FontWeight="Bold" Foreground="{Binding AccentColor}" Margin="0,0,10,0" />
+                                <TextBlock Text="{Binding Title}" FontWeight="Black" FontSize="11" Foreground="White" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding Message}" Margin="0,6,0,0" TextWrapping="Wrap" FontSize="11" Foreground="#94A3B8" Opacity="0.9" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Grid x:Name="ReportDialogOverlay" IsVisible="False" Background="#AA020617" ZIndex="220">
+            <Border Width="430" Background="#F00F172A" BorderBrush="#38BDF8" BorderThickness="1.5" CornerRadius="18" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Generar reporte" FontSize="28" FontWeight="Black" Foreground="White" Margin="0,0,0,8" />
+                    <TextBlock Text="Selecciona si deseas exportar solo el día actual o un lote entre fechas. Al terminar, el sistema abrirá la carpeta del archivo." TextWrapping="Wrap" Foreground="#CBD5E1" Margin="0,0,0,18" />
+                    <RadioButton x:Name="SingleDayReportOption" Content="Simulación de un día" IsChecked="True" Foreground="White" FontWeight="Bold" Margin="0,0,0,8" />
+                    <CalendarDatePicker x:Name="ReportStartDatePicker" Margin="0,0,0,16" />
+                    <RadioButton x:Name="DateRangeReportOption" Content="Simulación por lote de días" Foreground="White" FontWeight="Bold" Margin="0,0,0,8" />
+                    <CalendarDatePicker x:Name="ReportEndDatePicker" Margin="0,0,0,20" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Cancelar" Click="CloseReportDialog_Click" Background="#475569" Classes="dialog" Margin="0,0,10,0" />
+                        <Button x:Name="GenerateReportButton" Content="Generar" Click="GenerateReportFromDialog_Click" Background="#2563EB" Classes="dialog" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="TutorialOverlay" IsVisible="False" Background="#B0020617" ZIndex="250">
+            <Canvas x:Name="TutorialCanvas" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <Border x:Name="TutorialHighlight" Width="300" Height="120" BorderBrush="#38BDF8" BorderThickness="4" CornerRadius="18" Background="#1A38BDF8" />
+                <Border x:Name="TutorialCard" Width="430" Background="#F00F172A" BorderBrush="#38BDF8" BorderThickness="1.5" CornerRadius="18" Padding="22">
+                    <StackPanel>
+                        <TextBlock x:Name="TutorialStepText" Text="Paso 1" Foreground="#38BDF8" FontWeight="Black" FontSize="13" Margin="0,0,0,8" />
+                        <TextBlock x:Name="TutorialTitleText" Text="Tutorial" Foreground="White" FontWeight="Black" FontSize="27" Margin="0,0,0,8" />
+                        <TextBlock x:Name="TutorialBodyText" TextWrapping="Wrap" Foreground="#CBD5E1" FontSize="15" LineHeight="21" Margin="0,0,0,20" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="PreviousTutorialButton" Content="Anterior" Click="PreviousTutorialStep_Click" Background="#475569" Classes="dialog" Margin="0,0,8,0" />
+                            <Button x:Name="NextTutorialButton" Content="Siguiente" Click="NextTutorialStep_Click" Background="#2563EB" Classes="dialog" Margin="0,0,8,0" />
+                            <Button Content="Cerrar" Click="EndTutorial_Click" Background="#991B1B" Classes="dialog" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Canvas>
+        </Grid>
+
+        <Grid x:Name="MainMenuOverlay" ZIndex="300">
+            <Grid.Background>
+                <ImageBrush Source="avares://HighRiskSimulator/assets/backgrounds/background_2.png" Stretch="UniformToFill" />
+            </Grid.Background>
+            <Rectangle Fill="#B0020617" />
+            <Border Width="560" Background="#E60F172A" BorderBrush="#38BDF8" BorderThickness="1.5" CornerRadius="28" Padding="30" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Image Source="avares://HighRiskSimulator/assets/title/title_main_menu.png" Width="460" Height="250" Stretch="Uniform" Margin="0,-25,0,-10" />
+                    <TextBlock Text="Teleférico Mukumbarí - Mérida, Venezuela" TextAlignment="Center" Foreground="#CBD5E1" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,22" />
+                    <Button Content="Tutorial" Click="StartTutorial_Click" Background="#0F766E" Classes="menu-button" Width="420" HorizontalAlignment="Center" HorizontalContentAlignment="Center" />
+                    <Button Content="Simulador" Click="StartSimulator_Click" Background="#2563EB" Classes="menu-button" Width="420" HorizontalAlignment="Center" HorizontalContentAlignment="Center" />
+                    <Button Content="Salir" Click="ExitApplication_Click" Background="#991B1B" Classes="menu-button" Width="420" HorizontalAlignment="Center" HorizontalContentAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
