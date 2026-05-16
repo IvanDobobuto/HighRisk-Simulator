@@ -193,7 +193,7 @@ public partial class MainWindow : Window
         }
 
         DrawEnvironmentBackdrop(snapshot);
-        DrawMountains(snapshot, MapPoint);
+        //DrawMountains(snapshot, MapPoint);
         DrawAltitudeReference(MapPoint, minAltitude, maxAltitude, minRoute);
         DrawCableRoute(snapshot, MapPoint);
         DrawStations(snapshot, MapPoint);
@@ -818,18 +818,18 @@ public partial class MainWindow : Window
     private void DrawSceneHud(SimulationSnapshot snapshot)
     {
         // 1. PANEL DE RIESGO
-        var riskPanel = CreateHudCard(128, 26, 360, 160, "Resumen de riesgo");
+        var riskPanel = CreateHudCard(28, 126, 360, 160, "Resumen de riesgo");
         RouteCanvas.Children.Add(riskPanel);
-        AddHudText(148, 75, $"Estado: {snapshot.OperationalStateDisplay}", 25, FontWeights.SemiBold);
-        AddHudText(148, 108, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 25, FontWeights.Normal);
-        AddHudText(148, 140, $"Eventos activos: {snapshot.ActiveCriticalIssues}", 25, FontWeights.Normal);
+        AddHudText(48, 175, $"Estado: {snapshot.OperationalStateDisplay}", 25, FontWeights.SemiBold);
+        AddHudText(48, 208, $"Riesgo actual: {snapshot.CurrentRiskScore:F1}/100", 25, FontWeights.Normal);
+        AddHudText(48, 240, $"Eventos activos: {snapshot.ActiveCriticalIssues}", 25, FontWeights.Normal);
 
         // 2. LEYENDA
-        var legendPanel = CreateHudCard(SceneWidth - 360, SceneHeight - 360, 330, 165, "Diagnóstico rápido");
+        var legendPanel = CreateHudCard(SceneWidth - 340, SceneHeight - 260, 330, 185, "Diagnóstico rápido");
         RouteCanvas.Children.Add(legendPanel);
-        AddLegendChip(SceneWidth - 344, SceneHeight - 312, "⚙ Falla mecánica", Color.FromRgb(234, 88, 12));
-        AddLegendChip(SceneWidth - 344, SceneHeight - 268, "⚡ Falla eléctrica", Color.FromRgb(147, 51, 234));
-        AddLegendChip(SceneWidth - 344, SceneHeight - 224, "■ Frenado / parada", Color.FromRgb(220, 38, 38));
+        AddLegendChip(SceneWidth - 330, SceneHeight - 212, "⚙ Falla mecánica", Color.FromRgb(234, 88, 12));
+        AddLegendChip(SceneWidth - 334, SceneHeight - 168, "⚡ Falla eléctrica", Color.FromRgb(147, 51, 234));
+        AddLegendChip(SceneWidth - 334, SceneHeight - 124, "■ Frenado / parada", Color.FromRgb(220, 38, 38));
     }
 
 
