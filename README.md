@@ -36,113 +36,147 @@ git clone https://github.com/IvanDobobuto/HighRisk-Simulator
 5.  Presiona F5 para compilar y lanzar la aplicación.
 
 ## Compilación vía CLI
-### Entorno Windows (Command Prompt / CMD o PowerShell)
-Para instalar las herramientas requeridas de manera automatizada sin necesidad de asistentes web, abra un terminal con privilegios de administrador y ejecute el gestor oficial `winget`:
-1.	Instalar el SDK: Asegúrate de tener instalado el [.NET 8.0 SDK.](https://dotnet.microsoft.com/download/dotnet/8.0):
-```cmd
+
+### Entorno Windows (PowerShell)
+En Windows no es necesario usar CMake para compilar este proyecto. Basta con tener instalado el SDK de .NET 8 y ejecutar los comandos de `dotnet` desde PowerShell.
+
+1. Instalar .NET 8 SDK:
+```powershell
 winget install Microsoft.DotNet.SDK.8
 ```
-2. Instalar CMake 3.20 o superior:
-```cmd
-winget install Kitware.CMake
+
+2. Verificar instalación:
+```powershell
+dotnet --version
 ```
-3.	Clona y accede a el repositorio:
-```cmd
+
+3. Clonar y acceder al repositorio:
+```powershell
 git clone https://github.com/IvanDobobuto/HighRisk-Simulator
 cd HighRisk-Simulator
 ```
-4. Restauración y Construcción con CMake y dotnet CLI:
-```cmd
+
+4. Restaurar paquetes NuGet:
+```powershell
 dotnet restore
 ```
-4.1 Configurar y compilar utilizando la infraestructura CMake
-```cmd
-cmake -B build -S .
-cmake --build build --config Release
+
+5. Compilar en modo Release:
+```powershell
+dotnet build HighRiskSimulator.sln -c Release
 ```
-5.	Ejecutar directamente:
-```cmd
+
+6. Ejecutar el simulador:
+```powershell
 dotnet run --project HighRiskSimulator/HighRiskSimulator.csproj -c Release
 ```
-### Entorno GNU/Linux (Ubuntu / Debian / RHEL y Derivados)
-1. Instalación de Dependencias vía Administrador de Paquetes
-Actualice sus repositorios locales e instale el SDK de .NET 8 y CMake utilizando la terminal:
+
+---
+
+### Entorno GNU/Linux (Ubuntu / Debian y derivados)
+En GNU/Linux se recomienda compilar usando `CMake` como envoltorio del flujo de `dotnet CLI`.
+
+1. Instalar dependencias principales:
 ```bash
-# Actualizar los índices de paquetes
-sudo apt update && sudo apt upgrade -y
-
-# Instalar los prerequisitos esenciales de CMake y compilación
-sudo apt install -y build-essential cmake
-
-# Instalar el SDK de .NET 8 (Repositorios oficiales de Microsoft)
-sudo apt install -y dotnet-sdk-8.0
+sudo apt update
+sudo apt install -y build-essential cmake dotnet-sdk-8.0
 ```
-2. Clonación del Repositorio
+
+2. Verificar instalación:
 ```bash
-git clone [https://github.com/IvanDobobuto/HighRisk-Simulator.git](https://github.com/IvanDobobuto/HighRisk-Simulator.git)
+dotnet --version
+cmake --version
+```
+
+3. Clonar y acceder al repositorio:
+```bash
+git clone https://github.com/IvanDobobuto/HighRisk-Simulator.git
 cd HighRisk-Simulator
 ```
-3. Guión Avanzado de Limpieza, Resolución de Dependencias y Compilación (Excepción de Linux)
-3.1 Limpiar builds y cache
+
+4. Configurar CMake:
 ```bash
+cmake -S . -B build
+```
+
+5. Compilar:
+```bash
+cmake --build build --target build
+```
+
+6. Ejecutar:
+```bash
+cmake --build build --target run
+```
+
+#### Excepción en Linux: error de SkiaSharp
+Si al ejecutar aparece un error relacionado con `SkiaSharp`, `libSkiaSharp` o una incompatibilidad de versiones nativas, ejecutar el siguiente bloque desde la raíz del proyecto:
+
+```bash
+# Limpiar builds y cache
 rm -rf build
 rm -rf HighRiskSimulator/bin HighRiskSimulator/obj
 rm -rf HighRiskSimulator.Core/bin HighRiskSimulator.Core/obj
 rm -rf HighRiskSimulator.Tests/bin HighRiskSimulator.Tests/obj
-```
-3.2 Limpiar cache NuGet
-```bash
+
+# Limpiar cache NuGet
 dotnet nuget locals all --clear
-```
-3.3 Restaurar paquetes
-```bash
+
+# Restaurar paquetes
 dotnet restore
-```
-3.4 Agregar libreria nativa correcta para Linux
-```bash
+
+# Agregar libreria nativa correcta para Linux
 dotnet add HighRiskSimulator/HighRiskSimulator.csproj package SkiaSharp.NativeAssets.Linux --version 3.119.0
-```
-3.5 Compilar proyecto utilizando la solución unificada
-```bash
+
+# Compilar proyecto
 dotnet build HighRiskSimulator.sln -c Release
-```
-4. Ejecutar el proyecto
-```bash
+
+# Ejecutar proyecto
 dotnet run --project HighRiskSimulator/HighRiskSimulator.csproj -c Release
 ```
-### Entorno macOS (Terminal de Apple Architecture x64/ARM64)
-1. Instalación de Dependencias vía Homebrew
-Utilice el gestor estándar de paquetes de macOS (brew) para descargar e inicializar el entorno de construcción:
-1.1 Actualizar las fórmulas de Homebrew
+
+---
+
+### Entorno macOS (Terminal)
+En macOS no es necesario Visual Studio. El proyecto puede compilarse desde Terminal usando Homebrew, .NET SDK 8 y CMake.
+
+1. Instalar Homebrew si no está instalado:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+2. Instalar dependencias:
 ```bash
 brew update
-```
-1.2 Instalar CMake (v3.20 o superior garantizado)
-```bash
 brew install cmake
+brew install --cask dotnet-sdk8
 ```
-1.3 Instalar .NET 8 SDK de manera aislada
+
+3. Verificar instalación:
 ```bash
-brew install --cask dotnet-sdk
+dotnet --version
+cmake --version
 ```
-2. Clonación del Repositorio
+
+4. Clonar y acceder al repositorio:
 ```bash
-git clone [https://github.com/IvanDobobuto/HighRisk-Simulator.git](https://github.com/IvanDobobuto/HighRisk-Simulator.git)
+git clone https://github.com/IvanDobobuto/HighRisk-Simulator.git
 cd HighRisk-Simulator
 ```
-3. Configuración
-Restaurar los metadatos de paquetes NuGet:
+
+5. Configurar CMake:
 ```bash
-dotnet restore
+cmake -S . -B build
 ```
-4. Generar los archivos de build nativos con CMake
+
+6. Compilar:
 ```bash
-cmake -B build -S .
-cmake --build build --config Release
+cmake --build build --target build
 ```
-5. Lanzar el simulador dinámico en macOS bajo Avalonia Desktop
+
+7. Ejecutar:
 ```bash
-dotnet run --project HighRiskSimulator/HighRiskSimulator.csproj -c Release
+cmake --build build --target run
 ```
 
 # Dependencias
