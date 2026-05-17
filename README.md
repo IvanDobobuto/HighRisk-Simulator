@@ -36,20 +36,115 @@ git clone https://github.com/IvanDobobuto/HighRisk-Simulator
 5.  Presiona F5 para compilar y lanzar la aplicación.
 
 ## Compilación vía CLI
-1.	Instalar el SDK: Asegúrate de tener instalado el [.NET 8.0 SDK.](https://dotnet.microsoft.com/download/dotnet/8.0)
-2.	Clona y accede a el repositorio:
-```bash
+### Entorno Windows (Command Prompt / CMD o PowerShell)
+Para instalar las herramientas requeridas de manera automatizada sin necesidad de asistentes web, abra un terminal con privilegios de administrador y ejecute el gestor oficial `winget`:
+1.	Instalar el SDK: Asegúrate de tener instalado el [.NET 8.0 SDK.](https://dotnet.microsoft.com/download/dotnet/8.0):
+```cmd
+winget install Microsoft.DotNet.SDK.8
+```
+2. Instalar CMake 3.20 o superior:
+```cmd
+winget install Kitware.CMake
+```
+3.	Clona y accede a el repositorio:
+```cmd
 git clone https://github.com/IvanDobobuto/HighRisk-Simulator
 cd HighRisk-Simulator
 ```
-3.	Restaurar dependencias:
+4. Restauración y Construcción con CMake y dotnet CLI:
+```cmd
+dotnet restore
+```
+4.1 Configurar y compilar utilizando la infraestructura CMake
+```cmd
+cmake -B build -S .
+cmake --build build --config Release
+```
+5.	Ejecutar directamente:
+```cmd
+dotnet run --project HighRiskSimulator/HighRiskSimulator.csproj -c Release
+```
+### Entorno GNU/Linux (Ubuntu / Debian / RHEL y Derivados)
+1. Instalación de Dependencias vía Administrador de Paquetes
+Actualice sus repositorios locales e instale el SDK de .NET 8 y CMake utilizando la terminal:
+```bash
+# Actualizar los índices de paquetes
+sudo apt update && sudo apt upgrade -y
+
+# Instalar los prerequisitos esenciales de CMake y compilación
+sudo apt install -y build-essential cmake
+
+# Instalar el SDK de .NET 8 (Repositorios oficiales de Microsoft)
+sudo apt install -y dotnet-sdk-8.0
+```
+2. Clonación del Repositorio
+```bash
+git clone [https://github.com/IvanDobobuto/HighRisk-Simulator.git](https://github.com/IvanDobobuto/HighRisk-Simulator.git)
+cd HighRisk-Simulator
+```
+3. Guión Avanzado de Limpieza, Resolución de Dependencias y Compilación (Excepción de Linux)
+3.1 Limpiar builds y cache
+```bash
+rm -rf build
+rm -rf HighRiskSimulator/bin HighRiskSimulator/obj
+rm -rf HighRiskSimulator.Core/bin HighRiskSimulator.Core/obj
+rm -rf HighRiskSimulator.Tests/bin HighRiskSimulator.Tests/obj
+```
+3.2 Limpiar cache NuGet
+```bash
+dotnet nuget locals all --clear
+```
+3.3 Restaurar paquetes
 ```bash
 dotnet restore
 ```
-4.	Ejecutar directamente:
+3.4 Agregar libreria nativa correcta para Linux
 ```bash
-dotnet run --project HighRiskSimulator
+dotnet add HighRiskSimulator/HighRiskSimulator.csproj package SkiaSharp.NativeAssets.Linux --version 3.119.0
 ```
+3.5 Compilar proyecto utilizando la solución unificada
+```bash
+dotnet build HighRiskSimulator.sln -c Release
+```
+4. Ejecutar el proyecto
+```bash
+dotnet run --project HighRiskSimulator/HighRiskSimulator.csproj -c Release
+```
+### Entorno macOS (Terminal de Apple Architecture x64/ARM64)
+1. Instalación de Dependencias vía Homebrew
+Utilice el gestor estándar de paquetes de macOS (brew) para descargar e inicializar el entorno de construcción:
+1.1 Actualizar las fórmulas de Homebrew
+```bash
+brew update
+```
+1.2 Instalar CMake (v3.20 o superior garantizado)
+```bash
+brew install cmake
+```
+1.3 Instalar .NET 8 SDK de manera aislada
+```bash
+brew install --cask dotnet-sdk
+```
+2. Clonación del Repositorio
+```bash
+git clone [https://github.com/IvanDobobuto/HighRisk-Simulator.git](https://github.com/IvanDobobuto/HighRisk-Simulator.git)
+cd HighRisk-Simulator
+```
+3. Configuración
+Restaurar los metadatos de paquetes NuGet:
+```bash
+dotnet restore
+```
+4. Generar los archivos de build nativos con CMake
+```bash
+cmake -B build -S .
+cmake --build build --config Release
+```
+5. Lanzar el simulador dinámico en macOS bajo Avalonia Desktop
+```bash
+dotnet run --project HighRiskSimulator/HighRiskSimulator.csproj -c Release
+```
+
 # Dependencias
 El simulador utiliza un stack moderno de .NET enfocado en alto rendimiento y visualización de datos:
 - **.NET 8.0 Avalonia UI:** Framework base para la interfaz de usuario y el motor de ejecución.
